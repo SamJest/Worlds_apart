@@ -7,6 +7,8 @@ import { DiagnosticsOverlay } from '../diagnostics/diagnosticsOverlay.ts'
 import { InputController } from '../input/inputController.ts'
 import { WorldScene } from '../scene/worldScene.ts'
 import { createEarthMoonRoute } from '../simulation/astronomy.ts'
+import { evaluateGuideway } from '../simulation/constructionRoute.ts'
+import type { GuidewayDesign } from '../simulation/constructionPlan.ts'
 import { createInitialJourneyState, updateJourney, type JourneyCommand, type JourneyState } from '../simulation/journeyState.ts'
 import { Hud } from '../ui/hud.ts'
 import { readViewPreferences, saveViewPreferences, type ViewPreferences } from '../ui/viewPreferences.ts'
@@ -42,7 +44,7 @@ export class WorldsApartApp {
       restart: () => this.dispatch({ type: 'restart' }),
       preferencesChanged: value => this.setPreferences(value),
     }, this.preferences)
-    this.planner = new RoutePlannerUi(root, this.config.journey.arrivalAltitudeKm, days => this.beginPlanned(days))
+    this.planner = new RoutePlannerUi(root, this.config.journey.arrivalAltitudeKm, (days, design) => this.beginPlanned(days, design))
     this.world = new WorldScene(this.hud.viewport, this.route, config)
     this.world.setQuality(this.preferences.quality)
     this.camera = new CameraController(this.world.camera, config.camera)
@@ -68,6 +70,7 @@ export class WorldsApartApp {
     window.removeEventListener('resize', this.resize)
     document.removeEventListener('visibilitychange', this.pauseWhenHidden)
     this.input.dispose()
+    this.planner.dispose()
     this.audio.dispose()
     this.diagnostics.dispose()
     this.world.dispose()
@@ -77,11 +80,14 @@ export class WorldsApartApp {
     this.state = updateJourney(this.state, command, this.config.journey)
   }
 
-  private beginPlanned(days: number) {
-    this.route = createEarthMoonRoute(days, this.config.journey.arrivalAltitudeKm)
+  private beginPlanned(days: number, design: GuidewayDesign) {
+    const constructed = evaluateGuideway(days, this.config.journey.arrivalAltitudeKm, design)
+    if (!constructed.valid) throw new Error('Cannot launch an invalid guideway.')
+    this.route = constructed.route
     this.world.setRoute(this.route)
     this.state = createInitialJourneyState(this.config.journey)
     this.hud.setJourneyDays(days)
+    this.hud.setBuildDetails(constructed.route.lengthKm, constructed.nodes.length, constructed.materialUnits)
     this.audio.reset()
     this.audio.start(this.preferences)
     this.audio.cue('launch', this.preferences.soundEnabled ? this.preferences.soundVolume : 0)

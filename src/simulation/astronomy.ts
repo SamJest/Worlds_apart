@@ -13,8 +13,9 @@ export interface EarthMoonRoute {
   readonly start: THREE.Vector3
   readonly arrivalMoon: THREE.Vector3
   readonly end: THREE.Vector3
-  readonly curve: THREE.CubicBezierCurve3
+  readonly curve: THREE.Curve<THREE.Vector3>
   readonly lengthKm: number
+  readonly constructionAnchors?: readonly THREE.Vector3[]
 }
 
 export function moonPosition(progress: number, simulatedDays: number): THREE.Vector3 {

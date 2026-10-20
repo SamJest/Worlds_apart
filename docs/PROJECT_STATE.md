@@ -1,36 +1,34 @@
-# Project state — 2026-10-20, ChatGPT round 2
+# Worlds Apart project state — ChatGPT Round 3 (2026-10-20)
 
-## Current clean export (source of truth before applying this change pack)
+## Exported baseline (already in GitHub before this patch)
 
-Commit: `165dc69387d82ce705fba12b24bbbe4d5a2de9bd`. This is the exact commit recorded in `BASE_SNAPSHOT.json` and the only safe target of this change pack. The source export includes the **previous ChatGPT refinement implementation**, even though several documentation pages still describe it as pending; code takes precedence over stale prose.
+Exact clean HEAD `12c6b8500029a02cbd13ed2d23d0190145806062` from `BASE_SNAPSHOT.json` in `CHATGPT_CONTEXT (2).zip`.
 
-### Present in exported repository
+The code in that export contains milestones 1 and 2 and the Round 2 planner/audio work; any earlier documentation describing them as *proposed* is stale. Its complete browser/desktop/mobile verification status is only as far as stated in the previous round's integration report, not independently rechecked here.
 
-- Browser-based Three.js / TypeScript / Vite Earth-to-Moon ride, ~3 real minutes at 1×, faster 4× and 16×.
-- Two cameras: first-person observation cabin and orbiting external view; pointer/touch look, mouse-wheel zoom and keyboard controls.
-- Earth and Moon at mean radii and mean separation, Moon's simplified orbital motion during the fictional rail journey, and natural geometric apparent-size growth.
-- Continuous adaptive route, detailed hollow carriage, instanced moving/permanent sleepers, terminal beacons, five journey phases, time-to-arrival and telemetry.
-- Pause, seek, restart, quality presets, contrast/cinematic/reduced-camera-motion preferences and local persistence.
-- Modular scene, UI and simulation, core unit tests, browser smoke tests, CI and hardened ChatGPT change-pack tools.
+- Browser 3D Earth-to-Moon ride (180 seconds at 1×, with seek, restart, 4× and 16×) using Earth/Moon mean scale and moving simplified Moon.
+- External orbit camera / first-person cabin camera; fictional magnetic guideway and hollow carriage.
+- Astronomical route selection with 2/4/6 simulated-day future lunar intercept, invalid offset warnings.
+- Audio-engine placeholder, preferences, telemetry/mission phases, accessibility and graphics presets.
+- CI/test infrastructure and hardened file-hash + base-commit change pack mechanism.
 
-Verified by the earlier project documentation: foundational desktop/mobile browser checks and a complete 16× ride. The integration quality of every refinement visible in this particular exported source was **not independently retested in this ChatGPT sandbox**.
+## Round 3 — included in change pack; NOT YET merged or visually verified
 
-### New round-2 code — proposed, not committed and not browser-verified
+- Bounded *player-authored 3D guideway* that bends through up to **three control anchors**, including lateral displacement in the orbital plane and out-of-plane height. This is real editable Three.js route geometry, not just a UI illustration.
+- 3 construction templates (Direct, Wide Arc, High Scenic), adding/removing/selecting anchors, mouse/touch marker dragging on the orbital map, sliders for height and lateral position; construction geometry, player route and route preview share the same evaluated model.
+- Independent rotatable/zoomable Three.js miniature for viewing the route in 3D. Planet marker radii in this miniature are enlarged and labelled schematic; actual ride keeps its astronomical radii.
+- Constraint checks: invalid/corrupt blueprints, guideway length allowance (120% of baseline), collision with departure Earth/arrival Moon and sharp curvature. Invalid design or orbital aim prevents launch with actionable messages.
+- Simple *fictional material unit* display (one unit per 1,000 km of rail); this is an allowance, **not a transport economy or physical construction simulation**.
+- Construction pylons at anchor locations visible during the actual ride, a built-track distance display, and a journey-complete construction summary.
+- Local persistence of validated design on successful departure, tolerant of storage unavailable/corrupt data.
+- Six pure blueprint state unit tests run and passed in isolation. Five collaboration-tool safety tests run and passed. New geometry integration and browser tests are written for Codex to run in the complete repository.
 
-- **Route planner:** preflight orbit diagram, 2/4/6 simulated-day travel presets, draggable/clickable orbital aim marker, ±12° angle slider, wrapped-angle intercept error, projected miss distance, disabled launch when misaligned, snap-to-intercept. The selected duration changes the real Three.js route and updates lunar movement and telemetry. Re-plan after arrival.
-- **Audio:** asset-free, synthesized space-rail drone plus phase/arrival cues; only initialises on player interaction; mute/volume are stored in settings; no autoplay; safe unavailable-audio fallback.
-- **Celestial motion:** simple Earth axial rotation and synchronized lunar rotation consistent with a tidally locked Moon in the simplified orbital plane.
-- **Accessibility/quality:** focus isolation while planning; Escape to exit; planner pointer and keyboard/slider controls; settings accessible before launch; auto-pause when document becomes hidden.
-- Extended planner, audio, preference and browser smoke tests.
+**Limits:** node fractions along baseline are pre-selected and cannot yet be freely changed. Rail is placed between Earth and the moving Moon in a single bounded level; no rail networks, station placement, route branching, real physics, resource harvesting, deliveries, currency, Mars or persistent travel between worlds.
 
-Standalone Node unit tests for planner, audio and preference logic pass. Node TypeScript syntax checks pass. Full `npm run check`, real visual walkthrough and FPS capture **remain mandatory in the complete GitHub repository**. The ChatGPT context ZIP intentionally has no node_modules, lockfile, root HTML entry point or browser binaries; dependency installation in this isolated environment timed out.
+## Integration requirement
 
-### Not implemented
+The context export omits `index.html`, `package-lock.json`, `node_modules`, Playwright binaries and GitHub CI workflows. The isolated sandbox cannot fetch npm dependencies (DNS failure), so **TypeScript compilation, Three.js route runtime tests and browser/WebGL/mobile rendering were NOT performed here**. Codex must apply only at the exact SHA, `npm ci && npm run check`, test all three construction presets for all days, inspect both cameras along full routes and repair any observed defects before pushing.
 
-There is no passenger/cargo economy, track placement in 3D, resource extraction, station network, accounts, multiplayer or journey beyond the Moon. The planner adjusts a **predefined, mathematically predicted fictional rail**, not a freely drawn network or actual orbital transfer. The audio is synthesized, not recorded ambience. The Earth and Moon maps are procedural stylisations, not satellite imagery. Render/FPS targets have not been established with measurements.
+## Next feature milestone
 
-## Recommended immediate sequence
-
-1. Codex: validate exact SHA, apply the JSON, run locked build/unit/browser checks, inspect planner and ride on 1440×900 + 390×844; repair only verified integration/visual defects, then commit and push.
-2. Export fresh `CHATGPT_CONTEXT.zip` from the clean commit and return to ChatGPT for next feature-heavy patch.
-3. Next design milestone: interactive 3D railway laying / construction decisions before tackling a small, bounded transport economy.
+A minimal *local* construction/transport loop: connect an orbital depot and one supply stop, ship materials on a second short rail line, and spend the proceeds on the next leg. Keep railway riding the main attraction and do not add sprawling production chains yet.

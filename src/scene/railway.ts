@@ -81,6 +81,17 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
     beacons.push(mesh)
   }
 
+  // Physical waypoint pylons identify the positions built by the player during the ride.
+  // They do not assert that a real bridge could support the space-spanning guideway.
+  for (const anchor of route.constructionAnchors ?? []) {
+    const marker = new THREE.Mesh(beaconGeometry, beaconMaterials[1])
+    marker.position.copy(anchor)
+    marker.quaternion.setFromUnitVectors(FORWARD, route.curve.getTangent(findNearestCurveFraction(route.curve, anchor)))
+    marker.scale.setScalar(1.5)
+    group.add(marker)
+    beacons.push(marker)
+  }
+
   return {
     group,
     update(progress: number, reducedMotion = false) {
@@ -113,4 +124,15 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
       beaconMaterials.forEach(material => material.dispose())
     },
   }
+}
+
+/** An infrequent, construction-time lookup for anchoring visual pylons to a spline. */
+function findNearestCurveFraction(curve: THREE.Curve<THREE.Vector3>, point: THREE.Vector3): number {
+  let chosen = 0, distance = Number.POSITIVE_INFINITY
+  for (let i = 0; i <= 180; i++) {
+    const t = i / 180
+    const d = curve.getPoint(t).distanceToSquared(point)
+    if (d < distance) { distance = d; chosen = t }
+  }
+  return chosen
 }
