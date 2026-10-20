@@ -6,6 +6,7 @@ import { WorldScene } from '../scene/worldScene.ts'
 import { createEarthMoonRoute } from '../simulation/astronomy.ts'
 import { createInitialJourneyState, updateJourney, type JourneyCommand, type JourneyState } from '../simulation/journeyState.ts'
 import { Hud } from '../ui/hud.ts'
+import { readViewPreferences, saveViewPreferences, type ViewPreferences } from '../ui/viewPreferences.ts'
 
 export class WorldsApartApp {
   private readonly config: GameConfig
@@ -15,6 +16,7 @@ export class WorldsApartApp {
   private readonly camera: CameraController
   private readonly input: InputController
   private readonly diagnostics: DiagnosticsOverlay
+  private preferences: ViewPreferences
   private state: JourneyState
   private animationFrame = 0
   private previousTimestamp: number | undefined
@@ -23,6 +25,7 @@ export class WorldsApartApp {
     this.config = validateGameConfig(config)
     this.route = createEarthMoonRoute(config.journey.simulatedDays, config.journey.arrivalAltitudeKm)
     this.state = createInitialJourneyState(config.journey)
+    this.preferences = readViewPreferences()
     this.hud = new Hud(root, config, {
       begin: () => this.dispatch({ type: 'begin' }),
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
@@ -30,8 +33,10 @@ export class WorldsApartApp {
       nextSpeed: () => this.dispatch({ type: 'next-speed' }),
       seek: progress => this.dispatch({ type: 'seek', progress }),
       restart: () => this.dispatch({ type: 'restart' }),
-    })
+      preferencesChanged: value => this.setPreferences(value),
+    }, this.preferences)
     this.world = new WorldScene(this.hud.viewport, this.route, config)
+    this.world.setQuality(this.preferences.quality)
     this.camera = new CameraController(this.world.camera, config.camera)
     this.input = new InputController(this.world.renderer.domElement, {
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
@@ -39,6 +44,8 @@ export class WorldsApartApp {
       seekBy: delta => this.dispatch({ type: 'seek', progress: this.state.progress + delta }),
       look: (deltaX, deltaY) => this.camera.look(deltaX, deltaY),
       zoom: direction => this.camera.zoom(direction),
+      showOptions: () => this.showOptions(),
+      toggleMinimalHud: () => this.setPreferences(this.hud.toggleMinimalHud()),
     })
     this.diagnostics = new DiagnosticsOverlay(root, new URLSearchParams(window.location.search).get('debug') === '1')
     window.addEventListener('resize', this.resize)
@@ -60,13 +67,24 @@ export class WorldsApartApp {
 
   private toggleCamera() { this.camera.toggleMode() }
 
+  private setPreferences(value: ViewPreferences) {
+    this.preferences = value
+    this.world.setQuality(value.quality)
+    saveViewPreferences(value)
+  }
+
+  private showOptions() {
+    this.dispatch({ type: 'pause' })
+    this.hud.openOptions()
+  }
+
   private readonly resize = () => this.world.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
 
   private readonly tick = (timestamp: number) => {
     const elapsed = this.previousTimestamp === undefined ? 0 : Math.min((timestamp - this.previousTimestamp) / 1000, this.config.journey.maximumFrameStepSeconds)
     this.previousTimestamp = timestamp
     this.dispatch({ type: 'advance', elapsedSeconds: elapsed })
-    const telemetry = this.world.update(this.state.progress, this.camera)
+    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion)
     this.hud.render(this.state, telemetry)
     this.world.render()
     this.diagnostics.update(elapsed, telemetry, this.world.renderer)

@@ -1,13 +1,15 @@
 import * as THREE from 'three'
 
+/** A roofed observation carriage with a genuinely hollow cabin for first-person view. */
 export function createCarriage() {
   const group = new THREE.Group()
   const geometries: THREE.BufferGeometry[] = []
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x9bb6c0, metalness: 0.7, roughness: 0.24 })
-  const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x101b2a, metalness: 0.5, roughness: 0.27 })
-  const glassMaterial = new THREE.MeshPhysicalMaterial({ color: 0x204865, metalness: 0.12, roughness: 0.12, transparent: true, opacity: 0.48, side: THREE.DoubleSide })
-  const lightMaterial = new THREE.MeshBasicMaterial({ color: 0x8fe8ff })
-  const materials = [bodyMaterial, darkMaterial, glassMaterial, lightMaterial]
+  const shell = new THREE.MeshStandardMaterial({ color: 0xaac1c7, metalness: 0.66, roughness: 0.28 })
+  const frame = new THREE.MeshStandardMaterial({ color: 0x162e43, metalness: 0.62, roughness: 0.35 })
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x65b9d1, metalness: 0.02, roughness: 0.08, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })
+  const lights = new THREE.MeshBasicMaterial({ color: 0x9defff })
+  const seat = new THREE.MeshStandardMaterial({ color: 0x2e556b, metalness: 0.05, roughness: 0.8 })
+  const materials = [shell, frame, glass, lights, seat]
   const box = (width: number, height: number, depth: number, x: number, y: number, z: number, material: THREE.Material) => {
     const geometry = new THREE.BoxGeometry(width, height, depth)
     geometries.push(geometry)
@@ -15,19 +17,48 @@ export function createCarriage() {
     mesh.position.set(x, y, z)
     group.add(mesh)
   }
-  box(0.055, 0.019, 0.14, 0, 0.019, 0, bodyMaterial)
-  box(0.054, 0.022, 0.087, 0, 0.039, -0.013, darkMaterial)
-  box(0.051, 0.003, 0.09, 0, 0.052, -0.013, bodyMaterial)
-  box(0.002, 0.023, 0.08, -0.026, 0.041, -0.014, glassMaterial)
-  box(0.002, 0.023, 0.08, 0.026, 0.041, -0.014, glassMaterial)
-  box(0.048, 0.022, 0.003, 0, 0.041, -0.055, glassMaterial)
-  box(0.04, 0.012, 0.004, 0, 0.027, 0.067, lightMaterial)
-  for (const x of [-0.018, 0.018]) {
-    box(0.009, 0.007, 0.015, x, 0.007, -0.044, darkMaterial)
-    box(0.009, 0.007, 0.015, x, 0.007, 0.046, darkMaterial)
+
+  // Observation deck, structure and overhead canopy. Never fill the cabin with an opaque box:
+  // the first-person camera sits at y=.043, z=.017 and must look through the front window.
+  box(0.066, 0.008, 0.150, 0, 0.018, 0, shell)
+  box(0.059, 0.003, 0.105, 0, 0.054, -0.005, shell)
+  box(0.051, 0.003, 0.105, 0, 0.025, -0.005, frame)
+  for (const x of [-0.029, 0.029]) {
+    for (const z of [-0.055, -0.002, 0.045]) box(0.003, 0.027, 0.003, x, 0.040, z, frame)
+    box(0.003, 0.003, 0.104, x, 0.051, -0.005, shell)
+    box(0.002, 0.020, 0.045, x, 0.040, -0.028, glass)
+    box(0.002, 0.020, 0.044, x, 0.040, 0.020, glass)
   }
-  const podLight = new THREE.PointLight(0x85dfff, 1.8, 0.32)
-  podLight.position.set(0, 0.032, 0.06)
+  box(0.053, 0.023, 0.002, 0, 0.040, 0.046, glass)
+  box(0.052, 0.020, 0.002, 0, 0.040, -0.057, glass)
+  box(0.055, 0.004, 0.005, 0, 0.029, 0.044, frame) // dashboard below eye line
+
+  // Pairs of low passenger benches behind the observation position.
+  for (const z of [-0.041, -0.012]) {
+    for (const x of [-0.014, 0.014]) {
+      box(0.018, 0.004, 0.013, x, 0.030, z, seat)
+      box(0.018, 0.013, 0.004, x, 0.036, z - 0.007, seat)
+    }
+  }
+  for (const x of [-0.021, 0.021]) {
+    for (const z of [-0.048, 0.048]) {
+      box(0.012, 0.006, 0.016, x, 0.007, z, frame)
+      box(0.009, 0.003, 0.019, x, 0.003, z, lights)
+    }
+  }
+  // Illuminated leading edge makes orientation legible from the external camera.
+  box(0.048, 0.006, 0.008, 0, 0.023, 0.075, lights)
+  box(0.022, 0.006, 0.020, 0, 0.014, 0.087, frame)
+  box(0.035, 0.002, 0.065, 0, 0.053, -0.005, lights)
+  const podLight = new THREE.PointLight(0x85dfff, 1.25, 0.34)
+  podLight.position.set(0, 0.032, 0.062)
   group.add(podLight)
-  return { group, dispose: () => { geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose()) } }
+
+  return {
+    group,
+    dispose() {
+      geometries.forEach(geometry => geometry.dispose())
+      materials.forEach(material => material.dispose())
+    },
+  }
 }

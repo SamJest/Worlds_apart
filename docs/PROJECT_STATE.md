@@ -26,3 +26,8 @@ The journey loads without page errors, begins, changes camera, pauses/resumes, c
 - Google Fonts are optional; system fonts provide the offline fallback.
 
 Current priority is journey polish: stronger departure/arrival staging, camera comfort, carriage credibility, rail coherence and explicit performance budgets. Route construction comes later. Transport economy, accounts, backend services, save/load and additional destinations are not implemented.
+
+
+## ChatGPT refinement change pack (proposed, not yet merged or browser-verified)
+
+A change pack against export base `6ed4f5e` adds mission phases/countdown, camera smoothing and distance mapping, a hollow observation carriage, denser local rail ties, beacon rings, quality presets, persisted accessibility controls and expanded tests. The export excluded package-lock/index.html and dependencies were not obtainable in ChatGPT's sandbox. The full suite and visual acceptance remain the responsibility of the receiving repository. See `docs/CODEX_HANDOFF.md`; do **not** treat the change pack as a committed state until it passes acceptance.

@@ -4,6 +4,8 @@ export interface InputHandlers {
   seekBy(delta: number): void
   look(deltaX: number, deltaY: number): void
   zoom(direction: number): void
+  showOptions(): void
+  toggleMinimalHud(): void
 }
 
 export class InputController {
@@ -48,6 +50,12 @@ export class InputController {
   private readonly wheel = (event: WheelEvent) => this.handlers.zoom(event.deltaY)
 
   private readonly keyDown = (event: KeyboardEvent) => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.repeat) return
+    const target = event.target
+    if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+    if (document.querySelector('dialog[open]')) return
+    if (event.key === '?') { this.handlers.showOptions(); return }
+    if (event.key.toLowerCase() === 'h') { this.handlers.toggleMinimalHud(); return }
     if (event.code === 'Space') {
       event.preventDefault()
       this.handlers.togglePlay()

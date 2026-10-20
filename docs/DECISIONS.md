@@ -31,3 +31,8 @@ Pure tests cover astronomy, configuration and journey transitions. Tool tests co
 ## 2026-10-20 — ChatGPT proposes; local tools and Codex verify
 
 Normal ChatGPT receives an explicit text snapshot and can return bounded complete-file replacements. The local tool verifies commit and file hashes, paths and symlinks before writing, creates backups, and never executes supplied commands. Codex/humans remain responsible for review, browser integration, tests, commits and pushes.
+
+
+## 2026-10-20 — proposed ChatGPT refinement (integration pending)
+
+Use arc-length fraction for carriage advancement but simulated elapsed fraction for lunar orbit. Keep external camera smoothing frame-rate-independent with a snap for seeks; reduced-motion mode disables smoothing. Keep cabin geometry actually hollow so first-person can see out. Offer local preference persistence and a render-performance option; never claim a measured FPS benefit without a browser check. Dense near-field sleepers are a fixed-size moving `InstancedMesh`, distinct from the sparse permanent route sleepers. These decisions are proposed in the change pack and must be confirmed after visual validation.

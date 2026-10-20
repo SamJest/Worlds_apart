@@ -88,9 +88,9 @@ export const defaultGameConfig: GameConfig = {
     rail: {
       curveSamples: 900,
       sleeperCount: 310,
-      endpointVisualGaugeWorldUnits: 0.003,
-      openSpaceGaugeWorldUnits: 6,
-      railVisualRadiusWorldUnits: 0.007,
+      endpointVisualGaugeWorldUnits: 0.060,
+      openSpaceGaugeWorldUnits: 0.085,
+      railVisualRadiusWorldUnits: 0.003,
     },
   },
   copy: {

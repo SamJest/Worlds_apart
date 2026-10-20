@@ -38,14 +38,19 @@ export class CameraController {
     this.orbitDistance = THREE.MathUtils.clamp(this.orbitDistance * (1 + Math.sign(direction) * this.config.zoomStep), this.config.minimumExternalDistanceWorldUnits, this.config.maximumExternalDistanceWorldUnits)
   }
 
-  apply(point: THREE.Vector3, tangent: THREE.Vector3, moonPosition: THREE.Vector3) {
+  apply(point: THREE.Vector3, tangent: THREE.Vector3, moonPosition: THREE.Vector3, elapsedSeconds = 1 / 60, reducedMotion = false) {
     if (this.modeValue === 'external') {
       this.desired.copy(point)
         .addScaledVector(tangent, -this.orbitDistance * Math.cos(this.yaw))
         .add(this.direction.set(Math.sin(this.yaw) * this.orbitDistance, 0.055 + this.orbitDistance * 0.37 + this.pitch * this.orbitDistance, Math.cos(this.yaw) * this.orbitDistance * 0.2))
       this.keepOutside(this.desired, this.origin, EARTH_RADIUS)
       this.keepOutside(this.desired, moonPosition, MOON_RADIUS)
-      this.camera.position.lerp(this.desired, 0.16)
+      // Frame-rate-independent easing, with immediate repositioning after a seek.
+      const alpha = reducedMotion || this.camera.position.distanceToSquared(this.desired) > 4
+        ? 1 : 1 - Math.exp(-Math.max(0, elapsedSeconds) * 10)
+      this.camera.position.lerp(this.desired, alpha)
+      this.keepOutside(this.camera.position, this.origin, EARTH_RADIUS)
+      this.keepOutside(this.camera.position, moonPosition, MOON_RADIUS)
       this.camera.lookAt(this.target.copy(point).addScaledVector(tangent, 0.09))
       return
     }

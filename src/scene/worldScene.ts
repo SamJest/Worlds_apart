@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { CameraController, CameraMode } from '../camera/cameraController.ts'
 import type { GameConfig } from '../config/gameConfig.ts'
+import type { QualityPreset } from '../ui/viewPreferences.ts'
 import { EARTH_RADIUS, KILOMETRES_PER_WORLD_UNIT, MOON_RADIUS, apparentDiameterDegrees, type EarthMoonRoute } from '../simulation/astronomy.ts'
 import { createCelestialBodies } from './bodies.ts'
 import { createCarriage } from './carriage.ts'
@@ -28,6 +29,7 @@ export class WorldScene {
   private readonly point = new THREE.Vector3()
   private readonly tangent = new THREE.Vector3()
   private readonly forward = new THREE.Vector3(0, 0, 1)
+  private quality: QualityPreset = 'auto'
 
   constructor(viewport: HTMLElement, private readonly route: EarthMoonRoute, private readonly config: GameConfig) {
     this.renderer = new THREE.WebGLRenderer({ antialias: config.renderer.antialias, powerPreference: 'high-performance' })
@@ -45,13 +47,16 @@ export class WorldScene {
     this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
   }
 
-  update(progress: number, cameraController: CameraController): Telemetry {
-    this.route.curve.getPoint(progress, this.point)
-    this.route.curve.getTangent(progress, this.tangent).normalize()
+  update(progress: number, cameraController: CameraController, elapsedSeconds = 1 / 60, reducedMotion = false): Telemetry {
+    // Timeline is distance-based rather than Bézier parameter-based.
+    const routeT = this.route.curve.getUtoTmapping(progress, progress * this.route.lengthKm / KILOMETRES_PER_WORLD_UNIT)
+    this.route.curve.getPoint(routeT, this.point)
+    this.route.curve.getTangent(routeT, this.tangent).normalize()
     this.carriage.group.position.copy(this.point)
     this.carriage.group.quaternion.setFromUnitVectors(this.forward, this.tangent)
     this.bodies.update(progress)
-    cameraController.apply(this.point, this.tangent, this.bodies.moon.position)
+    this.railway.update(progress, reducedMotion)
+    cameraController.apply(this.point, this.tangent, this.bodies.moon.position, elapsedSeconds, reducedMotion)
     const moonDistance = Math.max(MOON_RADIUS, this.bodies.moon.position.distanceTo(this.camera.position))
     return {
       progress,
@@ -66,11 +71,19 @@ export class WorldScene {
 
   render() { this.renderer.render(this.scene, this.camera) }
 
+  setQuality(quality: QualityPreset) {
+    this.quality = quality
+    this.environment.setQuality(quality)
+    this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
+  }
+
   resize(width: number, height: number, pixelRatio: number) {
     this.camera.aspect = width / Math.max(1, height)
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height)
-    this.renderer.setPixelRatio(Math.min(pixelRatio, this.config.renderer.maximumPixelRatio))
+    const cap = this.quality === 'performance' ? 1 : this.quality === 'quality'
+      ? this.config.renderer.maximumPixelRatio : Math.min(this.config.renderer.maximumPixelRatio, width < 780 ? 1.35 : 1.65)
+    this.renderer.setPixelRatio(Math.min(pixelRatio, cap))
   }
 
   dispose() {

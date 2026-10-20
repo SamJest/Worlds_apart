@@ -4,7 +4,7 @@
 
 Outcome: the original Earth-to-Moon experience is preserved behind modular TypeScript, validated tuning, state/config/tool tests, browser smoke coverage, diagnostics, CI and a documented ChatGPT workflow.
 
-## 2. Journey polish — next
+## 2. Journey polish — change pack prepared, awaiting integration QA
 
 Acceptance: departure and lunar approach have clear staging; carriage scale/interior and rail continuity feel credible; cameras remain comfortable at both viewports; lighting and procedural worlds improve without falsifying apparent size; accessibility basics and measured desktop/mobile performance budgets are documented and met.
 
@@ -23,3 +23,7 @@ Begin only after a milestone decision and written design specification. Acceptan
 ## 6. Beyond the Moon
 
 Acceptance: a second destination proves which route/data abstractions are genuinely reusable while retaining honest apparent-size and travel assumptions. Do not prebuild these abstractions during earlier milestones.
+
+## Next design specification (not implemented)
+
+[Route construction design](ROUTE_CONSTRUCTION_DESIGN.md) captures a first-playable preflight planner and its astronomical boundaries. Build it only after journey polish has passed browser QA.

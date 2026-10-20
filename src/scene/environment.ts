@@ -28,5 +28,10 @@ export function createEnvironment(config: GameConfig) {
   geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3))
   const material = new THREE.PointsMaterial({ size: 1.1, sizeAttenuation: false, vertexColors: true, depthWrite: false })
   group.add(new THREE.Points(geometry, material))
-  return { group, dispose: () => { geometry.dispose(); material.dispose() } }
+  return {
+    group,
+    setQuality(quality: 'auto' | 'performance' | 'quality') {
+      geometry.setDrawRange(0, quality === 'performance' ? Math.min(config.scene.starCount, 1200) : config.scene.starCount)
+    },
+    dispose: () => { geometry.dispose(); material.dispose() } }
 }
