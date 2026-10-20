@@ -1,13 +1,13 @@
 import * as THREE from 'three'
 import type { GameConfig } from '../config/gameConfig.ts'
-import { EARTH_RADIUS, MOON_RADIUS, moonPosition } from '../simulation/astronomy.ts'
+import { EARTH_RADIUS, MOON_RADIUS, moonPosition, LUNAR_ORBIT_DAYS } from '../simulation/astronomy.ts'
 import { createBodyTexture } from './proceduralTextures.ts'
 
 export interface CelestialBodies {
   readonly group: THREE.Group
   readonly earth: THREE.Mesh
   readonly moon: THREE.Mesh
-  update(progress: number): void
+  update(progress: number, simulatedDays: number): void
   dispose(): void
 }
 
@@ -43,9 +43,11 @@ export function createCelestialBodies(renderer: THREE.WebGLRenderer, config: Gam
     group,
     earth,
     moon,
-    update(progress) {
-      moon.position.copy(moonPosition(progress, config.journey.simulatedDays))
-      moon.rotation.y = progress * 0.22
+    update(progress, simulatedDays) {
+      moon.position.copy(moonPosition(progress, simulatedDays))
+      // Simplified axial spin: Earth rotates every simulated day; the Moon stays tidally locked.
+      earth.rotation.y = 1.55 + progress * simulatedDays * Math.PI * 2
+      moon.rotation.y = -(progress * simulatedDays / LUNAR_ORBIT_DAYS) * Math.PI * 2
     },
     dispose() {
       sphere.dispose()

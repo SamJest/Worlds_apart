@@ -24,14 +24,14 @@ export class WorldScene {
   private readonly scene = new THREE.Scene()
   private readonly environment
   private readonly bodies
-  private readonly railway
+  private railway
   private readonly carriage
   private readonly point = new THREE.Vector3()
   private readonly tangent = new THREE.Vector3()
   private readonly forward = new THREE.Vector3(0, 0, 1)
   private quality: QualityPreset = 'auto'
 
-  constructor(viewport: HTMLElement, private readonly route: EarthMoonRoute, private readonly config: GameConfig) {
+  constructor(viewport: HTMLElement, private route: EarthMoonRoute, private readonly config: GameConfig) {
     this.renderer = new THREE.WebGLRenderer({ antialias: config.renderer.antialias, powerPreference: 'high-performance' })
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -54,7 +54,7 @@ export class WorldScene {
     this.route.curve.getTangent(routeT, this.tangent).normalize()
     this.carriage.group.position.copy(this.point)
     this.carriage.group.quaternion.setFromUnitVectors(this.forward, this.tangent)
-    this.bodies.update(progress)
+    this.bodies.update(progress, this.route.simulatedDays)
     this.railway.update(progress, reducedMotion)
     cameraController.apply(this.point, this.tangent, this.bodies.moon.position, elapsedSeconds, reducedMotion)
     const moonDistance = Math.max(MOON_RADIUS, this.bodies.moon.position.distanceTo(this.camera.position))
@@ -63,10 +63,18 @@ export class WorldScene {
       earthDistanceKm: Math.max(0, (this.point.length() - EARTH_RADIUS) * KILOMETRES_PER_WORLD_UNIT),
       moonDistanceKm: Math.max(0, (moonDistance - MOON_RADIUS) * KILOMETRES_PER_WORLD_UNIT),
       moonAngularDiameterDegrees: apparentDiameterDegrees(MOON_RADIUS, moonDistance),
-      simulatedDays: progress * this.config.journey.simulatedDays,
+      simulatedDays: progress * this.route.simulatedDays,
       cameraMode: cameraController.mode,
       worldPosition: this.point.clone(),
     }
+  }
+
+  setRoute(route: EarthMoonRoute) {
+    this.scene.remove(this.railway.group)
+    this.railway.dispose()
+    this.route = route
+    this.railway = createRailway(route, this.config)
+    this.scene.add(this.railway.group)
   }
 
   render() { this.renderer.render(this.scene, this.camera) }

@@ -1,43 +1,28 @@
-# Codex handoff: journey-refinement change pack
+# Codex handoff — Round 2 preflight planner + audio
 
-## Goal
+**Exact base SHA:** `165dc69387d82ce705fba12b24bbbe4d5a2de9bd` (from the newly received `CHATGPT_CONTEXT (1).zip`). Do not apply this pack on a different HEAD without a new export/rebase. The old earlier handoff in the snapshot named an obsolete SHA and should not be reused.
 
-Apply and validate the enclosed **WORLDs APART Journey Refinement** change pack, **not** redesign the game or add economy features. The patch is written and scoped by ChatGPT. Codex should spend tokens only on merge review, missing-file/build issues, tests, browser validation, and any genuinely observed defects.
+## Your job is primarily integration verification, not feature design
 
-## Apply to the exact exported base
+1. Unzip this handoff. Copy `WORLDS_APART_ROUND2_CHANGE.json` into the repository root (or provide its path).
+2. Run `npm run change:check -- WORLDS_APART_ROUND2_CHANGE.json`. Review each file; only if safe, `npm run change:apply -- WORLDS_APART_ROUND2_CHANGE.json --apply`.
+3. `npm ci`, then `npm run check` (unit/tool/build/browser). Fix observed failures only; do not reconstruct completed features.
+4. Run the route/audio acceptance checklist in `docs/ROUND2_QA.md` and visually check performance, focus, sound, 2/4/6-day journeys, all ride controls, arrival and restart on desktop and mobile. Capture FPS/draw statistics with `?debug=1` rather than claiming performance improvements without measurement.
+5. If green, commit and push; export new clean `CHATGPT_CONTEXT.zip` using `npm run context:export` for the next ChatGPT round. Keep the full source, build artifacts and build dependencies in GitHub, not inside the context ZIP.
 
-The attached `WORLD_APART_REFINEMENT_CHANGE.json` targets Git commit `6ed4f5e88bd8bcfd35a07843a9f93644adc653d1`, with hashes from `CHATGPT_CONTEXT.zip` dated 2026-10-20 14:25 UTC. If HEAD differs, **do not bypass the validator**: inspect changed files, rebase this patch against the new committed source, or request a fresh ChatGPT export. Do not overwrite another contributor's edits.
+### Files implemented for you
 
-1. Copy the JSON to the repository root (or another local path).
-2. `npm run change:check -- WORLD_APART_REFINEMENT_CHANGE.json`
-3. Review file content/diff, then `npm run change:apply -- WORLD_APART_REFINEMENT_CHANGE.json --apply`
-4. `npm ci` if needed, then `npm run check`.
-5. In a real Chromium browser, inspect the checkpoints below and fix **only** observed issues.
-6. Commit and push the validated result. Export a new `CHATGPT_CONTEXT.zip` from a clean committed tree for the next ChatGPT iteration.
+- Simulation: new `src/simulation/routePlanner.ts` and tests; 2/4/6-day pure intercept logic.
+- UI: new `src/ui/routePlannerUi.ts`, large scoped planner CSS, HUD bridge and updates.
+- App and scene: dynamic route rebuilding, telemetry adjustment, simplified axial/tidal rotation, pause on tab hide, planner focus isolation and input guards.
+- Audio: new `src/audio/audioEngine.ts`, with persisted sound preferences and tests.
+- Tests: new planner/audio cases, updated preference and end-to-end browser smoke tests.
+- Docs: state, roadmap, route-planner implementation notes and audio manual QA.
 
-The JSON is complete-file replacements; do not ask Codex to rewrite them merely for style.
+### Scientific/gameplay integrity
 
-## What was implemented
+The route is a fictional fixed cubic Bézier rail with a future-Moon rendezvous. Duration presets change Moon orbit angle and endpoint, *not* physical transfer velocities. ±0.5° success band and the larger warning bands are arbitrary gameplay tuning; the planner clearly calls them schematic. No resources or economy and no additional planet.
 
-- Mission phases: departure → Earth ascent → open space → lunar approach → arrival, with a time-remaining indicator and deterministic seeking.
-- Real-time quality presets (Auto/Battery saver/Highest detail) that change render pixel ratio and star draw range.
-- Persistent preferences for reduced camera motion, enhanced HUD contrast and cinematic (hidden HUD) view; settings accessible from the top-right, H toggles cinematic view, ? opens options. Opening options pauses the ride.
-- Frame-rate-independent external camera following, collision prevention *after* easing, and seek-snap behaviour.
-- Arc-length distance mapping for the carriage: the 0–100% timeline now spans approximately equal route distance per tick, while the Moon's **orbital** position remains proportional to simulated time.
-- Rebuilt hollow observation cabin so first-person camera isn't inside an opaque box.
-- Rail gauge retuned to remain close to the carriage; 96 nearby instanced sleepers update along the route, plus two large station beacon rings. No new third-party assets or dependencies.
-- Expanded browser smoke coverage for options, seek-phase, mobile overflow and cinematic mode; new pure mission-phase unit tests.
+### Known verification limitation
 
-## Required browser checkpoints
-
-Desktop 1440×900 and mobile 390×844, start, seek and inspect both camera modes at 0%, 1%, 5%, 25%, 50%, 80%, 95%, 99.5%, and 100%. Check first-person can see through the front observation window. Confirm the new continuous narrow rails remain visually attached to the guideway, nearby sleepers remain aligned around bends, beacon rings are sensible and the Moon is never visually resized. Check the Earth and Moon do not clip into the external camera. Check reduced-motion, options dialog keyboard Escape, high contrast, toggling H twice, the Performance quality control and page reload persistence. Verify no uncaught errors or horizontal overflow.
-
-Check render-time & FPS with `?debug=1` in actual play at desktop and mobile. Compare before/after if the baseline was recorded. Avoid making numerical performance claims without measurements. The nearby sleeper dynamic buffer updates 96 instance matrices per frame; if mobile perf is harmed, shrink that instance count and remeasure.
-
-## Known limitation in this ChatGPT session
-
-The context export deliberately excludes the repository's `package-lock.json`, `index.html`, .github files and asset binaries. It is *not* a standalone clone; npm's registry was unreachable in the sandbox. Consequently a full production build and Chromium smoke test could not be run against the original full repository here. The new pure phase and preference tests were run with Node's explicit TypeScript-stripping flag (also wired into the package test command for Node 22); Codex must perform the full locked-dependency validation on the actual repository.
-
-## Do not implement yet
-
-No resource mining, money, cargo economies, accounts, multiplayer, extra planets or backend. These require their own milestones. `docs/ROUTE_CONSTRUCTION_DESIGN.md` is a design input for the next milestone, not authorisation to introduce transport economy.
+The context archive is a bounded export, not a self-contained application: missing `package-lock.json`, `index.html`, dependencies and `.github` CI files are intentionally not replaced by this pack. Node pure tests and TS syntax checks passed in this sandbox, but `npm install` timed out so the full production build and Playwright are still outstanding. Do not mislabel proposed changes as already playable until verified in the repository.

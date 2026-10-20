@@ -5,6 +5,8 @@ export interface ViewPreferences {
   highContrast: boolean
   minimalHud: boolean
   quality: QualityPreset
+  soundEnabled: boolean
+  soundVolume: number
 }
 
 const KEY = 'worlds-apart.view-preferences.v1'
@@ -13,6 +15,8 @@ export const defaultViewPreferences = (prefersReducedMotion = false): ViewPrefer
   highContrast: false,
   minimalHud: false,
   quality: 'auto',
+  soundEnabled: true,
+  soundVolume: 0.55,
 })
 
 export function readViewPreferences(): ViewPreferences {
@@ -26,6 +30,8 @@ export function readViewPreferences(): ViewPreferences {
       highContrast: candidate.highContrast === true,
       minimalHud: candidate.minimalHud === true,
       quality: candidate.quality === 'performance' || candidate.quality === 'quality' ? candidate.quality : 'auto',
+      soundEnabled: candidate.soundEnabled !== false,
+      soundVolume: typeof candidate.soundVolume === 'number' && Number.isFinite(candidate.soundVolume) ? Math.max(0, Math.min(1, candidate.soundVolume)) : defaults.soundVolume,
     }
   } catch { return defaults }
 }

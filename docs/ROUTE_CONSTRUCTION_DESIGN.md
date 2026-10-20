@@ -1,4 +1,4 @@
-# Route construction milestone: detailed design (not implemented)
+# Route construction: preflight rendezvous design (round-2 implementation proposed)
 
 ## Player promise
 
@@ -44,3 +44,9 @@ One main visualization, at most two sliders/segmented controls and a clear launc
 - Valid confirmation starts the existing route; camera, seek, speed, arrival and restart still work.
 - Keyboard/touch on 390px phone and ordinary desktop are both supported.
 - No invented construction economy, no saved route network and no route-building code until this milestone is selected.
+
+## 2026-10-20 implementation note
+
+The round-2 change pack implements a compact preflight **target-selection** planner with a top-down SVG model and real route rebuild after confirmation. Orbit angle error uses a pure, wrapped-angle model and a chord-distance approximation. Both drag and slider are available; snapping is explicit. The ghost line previews the **corrected rendezvous route**, not a guaranteed successful miss-target trajectory. A successful offset within 0.5° is automatically corrected to that trajectory when launching; this should be displayed explicitly to avoid an inaccurate physics claim. Three day presets are selectable.
+
+Freeform waypoint placement, path editing, track construction costs, on-surface infrastructure and a transport economy remain future work.

@@ -14,7 +14,7 @@ globalThis.window = {
 test('system reduced-motion default, safe storage and persistent options', () => {
   store.clear()
   assert.deepEqual(readViewPreferences(), { ...defaultViewPreferences(true) })
-  const selected = { reducedMotion: false, highContrast: true, minimalHud: true, quality: 'performance' }
+  const selected = { reducedMotion: false, highContrast: true, minimalHud: true, quality: 'performance', soundEnabled: false, soundVolume: 0.2 }
   saveViewPreferences(selected)
   assert.deepEqual(readViewPreferences(), selected)
 })

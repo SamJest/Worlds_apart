@@ -1,29 +1,29 @@
-# Roadmap
+# Worlds Apart delivery roadmap — revised 2026-10-20
 
-## 1. Foundation — complete
+## Milestone 1 — Earth-to-Moon ride: present in current repository
 
-Outcome: the original Earth-to-Moon experience is preserved behind modular TypeScript, validated tuning, state/config/tool tests, browser smoke coverage, diagnostics, CI and a documented ChatGPT workflow.
+Playable complete journey, astronomical scale, cameras, carriage, rail, progression, diagnostics, CI and testing tooling. Core ride verified previously.
 
-## 2. Journey polish — change pack prepared, awaiting integration QA
+## Milestone 2 — visual/comfort refinement: present in exported source, verify visually
 
-Acceptance: departure and lunar approach have clear staging; carriage scale/interior and rail continuity feel credible; cameras remain comfortable at both viewports; lighting and procedural worlds improve without falsifying apparent size; accessibility basics and measured desktop/mobile performance budgets are documented and met.
+Five journey phases, quality/contrast/reduced-motion settings, denser guideway and hollow carriage are already in the clean exported source. Full checkpoint sweep, performance budget, lighting/audio comfort and frame-rate capture are still needed.
 
-## 3. Audio and atmosphere
+## Milestone 3 — atmospheric sound: round-2 proposed patch
 
-Acceptance: an audio manager provides mute, volume and reduced-sensory options; ambience and departure/arrival cues begin only after interaction; every asset has a recorded licence; checks work with audio unavailable.
+Original synthesised audio manager, opt-in after interaction, mute/volume, phase/arrival cues. Requires actual desktop/mobile audio check after Codex integration.
 
-## 4. Route construction prototype
+## Milestone 4 — first route decisions: round-2 proposed patch
 
-Acceptance: the player can create or confirm a meaningful route, invalid/costly choices explain why, and construction leads directly into the ride. It remains separate from any economy.
+Selectable 2/4/6 day rendezvous, aim/sliding/dragging, invalid miss warning and route-confirm launch wired to scene. Not yet freeform rail construction or an economy. Requires all three travel presets tested end-to-end.
 
-## 5. First transport economy — explicitly deferred
+## Milestone 5 — true 3D route placement / player building
 
-Begin only after a milestone decision and written design specification. Acceptance will require a small passenger/resource loop that supports new links without burying the ride under management UI.
+Allow placement of meaningful segments/waypoints with clear fictional costs/constraints (not currency yet), preview and construct valid links in a level. Retain reliable Earth-Moon rendezvous; budget performance and prevent clipping. Requires a separate implementation brief after round-2 QA.
 
-## 6. Beyond the Moon
+## Milestone 6 — first simple transport economy
 
-Acceptance: a second destination proves which route/data abstractions are genuinely reusable while retaining honest apparent-size and travel assumptions. Do not prebuild these abstractions during earlier milestones.
+Only after route building is enjoyable: stations, a bounded cargo/material production loop, a clear purpose to connect two local stops, and enough income to fund extension toward the next world. Avoid management UI overgrowth.
 
-## Next design specification (not implemented)
+## Milestone 7 — beyond the Moon
 
-[Route construction design](ROUTE_CONSTRUCTION_DESIGN.md) captures a first-playable preflight planner and its astronomical boundaries. Build it only after journey polish has passed browser QA.
+Add a second body/destination based on explicit orbital and visual assumptions; preserve apparent-size honesty. An expanded solar system, persistence and content generation can follow once the core loop is proven.

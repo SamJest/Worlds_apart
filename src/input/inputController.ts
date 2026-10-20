@@ -1,4 +1,5 @@
 export interface InputHandlers {
+  canInteract(): boolean
   togglePlay(): void
   toggleCamera(): void
   seekBy(delta: number): void
@@ -53,7 +54,7 @@ export class InputController {
     if (event.altKey || event.ctrlKey || event.metaKey || event.repeat) return
     const target = event.target
     if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
-    if (document.querySelector('dialog[open]')) return
+    if (document.querySelector('dialog[open]') || !this.handlers.canInteract()) return
     if (event.key === '?') { this.handlers.showOptions(); return }
     if (event.key.toLowerCase() === 'h') { this.handlers.toggleMinimalHud(); return }
     if (event.code === 'Space') {
