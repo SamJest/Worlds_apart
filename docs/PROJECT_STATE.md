@@ -1,34 +1,22 @@
-# Worlds Apart project state — ChatGPT Round 3 (2026-10-20)
+# Worlds Apart — project state after preparing Round 4 (2026-10-20)
 
-## Exported baseline (already in GitHub before this patch)
+## Verified repository snapshot (before Round 4)
 
-Exact clean HEAD `12c6b8500029a02cbd13ed2d23d0190145806062` from `BASE_SNAPSHOT.json` in `CHATGPT_CONTEXT (2).zip`.
+Exact clean HEAD `83f6f4b4d4b755a09f1d403a29d46a911baac63e` in `CHATGPT_CONTEXT (3).zip`. It contains the earlier Earth-to-Moon journey, carriage/cameras/audio/preferences, 2/4/6-day orbital planning and Round 3 bounded 3D waypoint construction; those modules are in the actual exported source. Browser visual quality is not independently verified in this session.
 
-The code in that export contains milestones 1 and 2 and the Round 2 planner/audio work; any earlier documentation describing them as *proposed* is stale. Its complete browser/desktop/mobile verification status is only as far as stated in the previous round's integration report, not independently rechecked here.
+## Round 4 change pack — NOT YET APPLIED IN GITHUB
 
-- Browser 3D Earth-to-Moon ride (180 seconds at 1×, with seek, restart, 4× and 16×) using Earth/Moon mean scale and moving simplified Moon.
-- External orbit camera / first-person cabin camera; fictional magnetic guideway and hollow carriage.
-- Astronomical route selection with 2/4/6 simulated-day future lunar intercept, invalid offset warnings.
-- Audio-engine placeholder, preferences, telemetry/mission phases, accessibility and graphics presets.
-- CI/test infrastructure and hardened file-hash + base-commit change pack mechanism.
+- Deterministic, persistent *freight-alloy economy*: 500 initial materials; construction cost per actual kilometre; individually owned guideway blueprints, free replay on the same design and duration; not-enough-material launch lockout.
+- Two fixed freight stops (Earth Depot / Orbital Yard) with manually dispatched cargo shuttle. Freight counts down while the page is active; arrivals credit cargo once. Separate from the 2/4/6-day simulated lunar time, 4×/16× playback speed and seek controls.
+- Three service tiers: base 45 alloy per 18 sec; orbital siding 75 per 14 sec for 110 alloy after 2 deliveries; expanded sorting yard 110 per 11 sec for 230 alloy after 6 deliveries.
+- Keyboard/touch-operable freight console (in-game schematic map with moving train, cargo status, materials, deliveries, upgrades, route building and planner return). Intro, header, planner and Moon arrival provide access.
+- On-camera miniature 3D local freight route, two simplified depot platforms, cargo shuttle following the same shipment progress, extra siding/yard geometry shown as upgrades. This is deliberately not an independently switchable network or full transport-tycoon economy.
+- HUD rail-alloy balance, freight countdown, planner quote/shortfall, persistent validated localStorage state, safe corruption/blocked-storage fallback, unit/browser/geometry smoke tests and QA docs.
 
-## Round 3 — included in change pack; NOT YET merged or visually verified
+## Verification status (local sandbox)
 
-- Bounded *player-authored 3D guideway* that bends through up to **three control anchors**, including lateral displacement in the orbital plane and out-of-plane height. This is real editable Three.js route geometry, not just a UI illustration.
-- 3 construction templates (Direct, Wide Arc, High Scenic), adding/removing/selecting anchors, mouse/touch marker dragging on the orbital map, sliders for height and lateral position; construction geometry, player route and route preview share the same evaluated model.
-- Independent rotatable/zoomable Three.js miniature for viewing the route in 3D. Planet marker radii in this miniature are enlarged and labelled schematic; actual ride keeps its astronomical radii.
-- Constraint checks: invalid/corrupt blueprints, guideway length allowance (120% of baseline), collision with departure Earth/arrival Moon and sharp curvature. Invalid design or orbital aim prevents launch with actionable messages.
-- Simple *fictional material unit* display (one unit per 1,000 km of rail); this is an allowance, **not a transport economy or physical construction simulation**.
-- Construction pylons at anchor locations visible during the actual ride, a built-track distance display, and a journey-complete construction summary.
-- Local persistence of validated design on successful departure, tolerant of storage unavailable/corrupt data.
-- Six pure blueprint state unit tests run and passed in isolation. Five collaboration-tool safety tests run and passed. New geometry integration and browser tests are written for Codex to run in the complete repository.
+31/31 independent local tests pass and 5/5 change-tool tests pass. Full suite has two modules requiring `three` absent from the snapshot. Global `tsc --noEmit` only complains about missing `three` dependencies. `npm install` failed DNS; full project build, Playwright, 3D runtime tests and browser/WebGL/mobile visual inspection are outstanding for Codex. No claims of production quality yet.
 
-**Limits:** node fractions along baseline are pre-selected and cannot yet be freely changed. Rail is placed between Earth and the moving Moon in a single bounded level; no rail networks, station placement, route branching, real physics, resource harvesting, deliveries, currency, Mars or persistent travel between worlds.
+## Next development
 
-## Integration requirement
-
-The context export omits `index.html`, `package-lock.json`, `node_modules`, Playwright binaries and GitHub CI workflows. The isolated sandbox cannot fetch npm dependencies (DNS failure), so **TypeScript compilation, Three.js route runtime tests and browser/WebGL/mobile rendering were NOT performed here**. Codex must apply only at the exact SHA, `npm ci && npm run check`, test all three construction presets for all days, inspect both cameras along full routes and repair any observed defects before pushing.
-
-## Next feature milestone
-
-A minimal *local* construction/transport loop: connect an orbital depot and one supply stop, ship materials on a second short rail line, and spend the proceeds on the next leg. Keep railway riding the main attraction and do not add sprawling production chains yet.
+Interactive freely placed **local station/network segments**, junction/switch path routing, selectable cargo lines and genuinely finite goods supply. Then expansion to another planetary destination without sacrificing accurate visual scale. Keep the scenic rail journey the central attraction.

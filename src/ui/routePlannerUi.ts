@@ -3,6 +3,7 @@ import { defaultRoutePlan, evaluateIntercept, type RouteDurationDays, type Route
 import { addGuidewayNode, applyGuidewayPreset, MAX_GUIDEWAY_NODES, readGuidewayDesign, removeGuidewayNode, saveGuidewayDesign, updateGuidewayNode, type GuidewayDesign } from '../simulation/constructionPlan.ts'
 import { evaluateGuideway, guidewayAnchor } from '../simulation/constructionRoute.ts'
 import { ConstructionPreview } from '../scene/constructionPreview.ts'
+import type { RouteCost } from '../simulation/freightEconomy.ts'
 
 export class RoutePlannerUi {
   private readonly panel: HTMLElement
@@ -23,6 +24,8 @@ export class RoutePlannerUi {
   private readonly constructionMessage: HTMLElement
   private readonly constructionMaterial: HTMLElement
   private readonly constructionSave: HTMLElement
+  private readonly balance: HTMLElement
+  private readonly freightAction: HTMLButtonElement
 
   private plan: RoutePlan = { ...defaultRoutePlan }
   private dragging = false
@@ -32,7 +35,8 @@ export class RoutePlannerUi {
   private preview: ConstructionPreview | undefined
   private readonly priorInert = new Map<HTMLElement, boolean>()
 
-  constructor(root: HTMLElement, private readonly arrivalAltitudeKm: number, private readonly onConfirm: (days: RouteDurationDays, design: GuidewayDesign) => void) {
+  constructor(root: HTMLElement, private readonly arrivalAltitudeKm: number, private readonly onConfirm: (days: RouteDurationDays, design: GuidewayDesign) => boolean,
+    private readonly economy: { quote(days: RouteDurationDays, design: GuidewayDesign, units: number): RouteCost; openFreight(): void }) {
     const panel = document.createElement('section')
     panel.className = 'route-planner hidden'
     panel.id = 'route-planner'
@@ -61,7 +65,7 @@ export class RoutePlannerUi {
           <div id="construction-node-list" class="construction-node-list" role="group" aria-label="Select or remove a guideway anchor"></div>
           <label class="planner-range-label" for="construction-lateral">LATERAL OFFSET <strong id="construction-lateral-value">0 KM</strong></label><input id="construction-lateral" type="range" min="-85000" max="85000" step="1000" value="0"/>
           <label class="planner-range-label" for="construction-vertical">VERTICAL OFFSET <strong id="construction-vertical-value">0 KM</strong></label><input id="construction-vertical" type="range" min="-60000" max="60000" step="1000" value="0"/>
-          <div class="construction-economy"><span>MATERIAL UNITS · 1 PER 1,000 KM</span><strong id="construction-material">—</strong></div><p id="construction-status" class="construction-status" role="status" aria-live="polite">Guideway ready</p><p id="construction-saved" class="construction-saved">Edits save locally on departure.</p>
+          <div class="construction-economy"><span>RAIL LENGTH ALLOWANCE</span><strong id="construction-material">—</strong></div><div id="planner-wallet" class="planner-wallet" role="status" aria-live="polite">500 alloy available</div><button id="planner-freight" type="button" class="planner-freight">OPEN FREIGHT YARD · EARN ALLOY ↗</button><p id="construction-status" class="construction-status" role="status" aria-live="polite">Guideway ready</p><p id="construction-saved" class="construction-saved">Edits save locally on departure.</p>
         </div>
         <div class="intercept-status" role="status" aria-live="polite"><strong id="planner-status">INTERCEPT LOCKED</strong><span id="planner-miss">Calculated miss: 0 km</span></div>
         <div class="planner-stat"><span>SIMULATED TRAVEL</span><strong id="planner-duration">4 DAYS</strong></div><div class="planner-stat"><span>APPROXIMATE RAIL LENGTH</span><strong id="planner-distance">—</strong></div>
@@ -91,6 +95,9 @@ export class RoutePlannerUi {
     this.constructionMessage = required('#construction-status')
     this.constructionMaterial = required('#construction-material')
     this.constructionSave = required('#construction-saved')
+    this.balance = required('#planner-wallet')
+    this.freightAction = required<HTMLButtonElement>('#planner-freight')
+    this.freightAction.addEventListener('click', () => { this.close(false); this.economy.openFreight() })
     required<HTMLButtonElement>('#construction-add').addEventListener('click', () => {
       this.design = addGuidewayNode(this.design)
       this.selectedNodeId = this.design.nodes[this.design.nodes.length - 1]?.id ?? null
@@ -133,9 +140,10 @@ export class RoutePlannerUi {
       if (!evaluateIntercept(this.plan).canLaunch) return
       const result = evaluateGuideway(this.plan.days, this.arrivalAltitudeKm, this.design)
       if (!result.valid) { this.render(); return }
-      this.close(false)
+      const quote = this.economy.quote(this.plan.days, this.design, result.materialUnits)
+      if (quote.shortfall || !this.onConfirm(this.plan.days, this.design)) { this.render(); return }
       this.constructionSave.textContent = saveGuidewayDesign(this.design) ? 'Blueprint saved to this browser.' : 'Local saving is disabled in this browser.'
-      this.onConfirm(this.plan.days, this.design)
+      this.close(false)
     })
     required<HTMLButtonElement>('#planner-back').addEventListener('click', () => this.close())
     this.visual.addEventListener('pointerdown', event => {
@@ -286,6 +294,11 @@ export class RoutePlannerUi {
     this.panel.querySelector('#construction-vertical-value')!.textContent = `${Math.round((selected?.verticalKm ?? 0) / 1000)}K KM`
     this.panel.querySelector<HTMLButtonElement>('#construction-add')!.disabled = this.design.nodes.length >= MAX_GUIDEWAY_NODES
     this.constructionMaterial.textContent = `${construction.materialUnits.toLocaleString('en-GB')} / ${Math.ceil(construction.baselineMaterialUnits * 1.20).toLocaleString('en-GB')} ALLOWED`
+    const quote = this.economy.quote(this.plan.days, this.design, construction.materialUnits)
+    this.balance.dataset.affordable = String(quote.shortfall === 0)
+    this.balance.textContent = quote.alreadyBuilt ? `ALREADY BUILT · FREE TO RIDE AGAIN · ${quote.available.toLocaleString('en-GB')} ALLOY IN STOCK`
+      : quote.shortfall > 0 ? `NEED ${quote.shortfall.toLocaleString('en-GB')} MORE ALLOY · ${quote.available.toLocaleString('en-GB')} IN STOCK`
+      : `CONSTRUCTION COST: ${quote.price.toLocaleString('en-GB')} ALLOY · ${quote.available.toLocaleString('en-GB')} IN STOCK · READY TO BUILD`
     this.constructionMessage.textContent = construction.valid
       ? `GUIDEWAY VALID · ${construction.extraLengthKm >= 0 ? '+' : ''}${construction.extraLengthKm.toLocaleString('en-GB')} km vs direct · ${this.design.nodes.length} anchors`
       : `CANNOT CONSTRUCT · ${construction.warnings.join(' ')}`
@@ -301,7 +314,7 @@ export class RoutePlannerUi {
     const status = result.assessment === 'locked' ? 'INTERCEPT LOCKED' : result.assessment === 'correction' ? 'CORRECTION NEEDED' : 'TARGET WILL MISS THE MOON'
     this.assessment.textContent = status
     this.panel.dataset.intercept = result.assessment
-    this.confirm.disabled = !result.canLaunch || !construction.valid
+    this.confirm.disabled = !result.canLaunch || !construction.valid || quote.shortfall > 0
     this.miss.textContent = result.canLaunch ? 'Automatic fine correction available · ready for departure' : `Projected centreline miss: ${Math.round(result.missDistanceKm).toLocaleString('en-GB')} km · ${result.differenceDegrees.toFixed(1)}° off target`
     this.duration.textContent = `${this.plan.days} DAYS · ${result.predictedDegrees.toFixed(1)}° LUNAR SWEEP`
     this.distance.textContent = `${Math.round(route.lengthKm).toLocaleString('en-GB')} KM · PLAYER BUILT`

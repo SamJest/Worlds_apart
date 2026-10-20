@@ -93,3 +93,47 @@ button:focus-visible,input:focus-visible{outline:3px solid #b5f4ff;outline-offse
 @media(max-width:780px){.construction-viewport{height:145px}.route-planner button,#planner-snap{min-height:40px}}
 
 .build-arrival{color:#9de1ee!important;font-size:12px!important;letter-spacing:.05em;text-transform:uppercase;max-width:640px;margin:10px auto 16px!important}
+
+
+/* Round 4 — freight logistics console and construction-funded lunar lines. */
+.planner-wallet{padding:12px;border:1px solid #71c6a466;border-radius:5px;background:#15362da8;color:#c2f4e2;font:700 11px/1.4 'DM Sans',sans-serif;text-align:center}
+.planner-wallet[data-affordable=false]{border-color:#d9a068aa;background:#46311d;color:#ffe0ae}
+.planner-freight{min-height:43px;width:100%;border-radius:6px;border:1px solid #8eb9c9;background:#183b51;color:#c3eff9;font:700 11px 'DM Sans',sans-serif}
+.freight-nav{background:#103750;color:#b6e9f6;border:1px solid #5494ab;border-radius:4px;padding:9px 12px;font:700 11px 'DM Sans',sans-serif;letter-spacing:.06em}
+.freight-operations{position:fixed;inset:0;overflow-y:auto;z-index:40;background:linear-gradient(125deg,#041222f9,#0a2432fa);color:#e8f6fb;overscroll-behavior:contain}
+.freight-inner{max-width:1160px;margin:0 auto;padding:clamp(23px,5vh,55px) clamp(18px,4vw,55px)}
+.freight-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:15px}
+.freight-heading h1{font:600 clamp(27px,4vw,45px)/1.15 'Space Grotesk',sans-serif;margin:11px 0}
+.freight-heading p{color:#a3c4d3;line-height:1.6;font-size:13px;max-width:680px}
+#freight-close{min-height:44px;white-space:nowrap;padding:10px 15px;color:#c5e7f4;background:#143147;border:1px solid #6c9cb0;border-radius:5px;font-weight:700}
+.freight-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.9fr);gap:20px;margin-top:24px}
+.freight-network,.freight-card,.freight-inventory{border:1px solid #49738a88;background:#102b3ba8;border-radius:9px}
+.freight-network{display:flex;flex-direction:column;align-self:start;overflow:hidden;padding-bottom:18px}
+.freight-network-heading{display:flex;justify-content:space-between;gap:10px;margin:18px 18px 0;color:#addef0;font:700 10px 'DM Sans',sans-serif;letter-spacing:.1em}
+.freight-network-heading span{color:#729aac;font-size:8px}
+#freight-network{width:100%;max-height:340px;display:block}
+#freight-network text{font:700 11px 'Space Grotesk',sans-serif;fill:#b9e3ef;letter-spacing:.06em}
+#freight-network text.freight-route-caption{font-size:8px;fill:#729aaa}
+.freight-progress-info{display:flex;justify-content:space-between;align-items:center;gap:12px;color:#b6eff0;margin:0 18px 12px;font-size:11px;letter-spacing:.04em}
+.freight-progress-track{margin:0 18px;height:7px;border-radius:6px;background:#294a5b;overflow:hidden}
+.freight-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#69bde5,#b3e9a7);transition:width .15s linear}
+.freight-network small{display:block;color:#8aafbf;line-height:1.5;padding:16px 18px 0}
+.freight-controls{display:flex;flex-direction:column;gap:12px}
+.freight-inventory{padding:20px;background:#18453a88}
+.freight-inventory span{font:700 10px 'DM Sans',sans-serif;letter-spacing:.14em;color:#b2e9dc}
+.freight-inventory strong{display:block;font:600 42px 'Space Grotesk',sans-serif;margin:7px 0;color:#e2ffe7}
+.freight-inventory small{color:#a3caba;font-size:10px}
+.freight-card{padding:18px 20px}
+.freight-card h2{font:700 14px 'Space Grotesk',sans-serif;margin:0 0 8px}
+.freight-card p{font-size:12px;color:#a4bece;line-height:1.5;margin:0 0 14px}
+.freight-card button{width:100%;min-height:44px;padding:9px;background:#a2e9e8;color:#102e3e;border:none;border-radius:5px;font:700 11px 'Space Grotesk',sans-serif;letter-spacing:.04em}
+.freight-card button:disabled{background:#395666;color:#a4bdca;cursor:default}
+.freight-stats{font-size:10px;color:#a9ced8;margin-top:12px}
+.freight-footnote{font-size:11px;color:#7c9caf;line-height:1.55;margin-top:23px}
+@media(max-width:780px){.freight-layout{grid-template-columns:1fr}.freight-inner{padding:23px 14px}.freight-heading h1{font-size:27px}.freight-heading p{font-size:12px}.freight-network-heading{font-size:9px}.freight-network-heading span{font-size:7px}.freight-inventory strong{font-size:34px}}
+@media(max-width:425px){.freight-heading{flex-direction:column-reverse}.freight-heading #freight-close{align-self:flex-end}.freight-network-heading span{display:none}.freight-nav{font-size:10px;padding:7px}}
+
+/* Contain the global fixed game HUD header inside the freight overlay. */
+.freight-operations .freight-heading{position:static;top:auto;left:auto;right:auto;padding:0;pointer-events:auto}
+.intro #intro-freight{margin-left:10px;background:#153147;color:#d3f3ff;border:1px solid #7299ac;padding:14px 16px}
+@media(max-width:520px){.intro #intro-freight{display:block;margin:0 0 10px}.intro #begin{margin-bottom:8px}}

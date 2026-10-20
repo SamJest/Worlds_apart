@@ -39,3 +39,9 @@ From a clean committed tree, run `npm run context:export`. Attach `exports/CHATG
 Read [the simple workflow](docs/CHATGPT_WORKFLOW.md) before first use. Project details live in [project state](docs/PROJECT_STATE.md), [architecture](docs/ARCHITECTURE.md), [game vision](docs/GAME_VISION.md), [roadmap](docs/ROADMAP.md), [testing](docs/TESTING.md) and [decisions](docs/DECISIONS.md).
 
 For the next development handoff, see [Codex instructions](docs/CODEX_HANDOFF.md) and the [route construction design](docs/ROUTE_CONSTRUCTION_DESIGN.md).
+
+## Round 4 freight prototype (once integrated)
+
+A compact orbital freight service lets you ship rail alloy from an Earth Depot to an Orbital Yard. Open **Freight** from the introduction, HUD or route planner. Dispatch one shuttle at a time, expand your yard as deliveries accumulate, and use the earned alloy to pay for new Earth–Moon guideway layouts. Existing identical layouts remain free to replay. Inventory, station upgrades, cargo-in-transit and owned layouts persist locally in your browser. The freight stations also have a small 3D representation near Earth during the ride.
+
+See `docs/FREIGHT_ECONOMY.md` for rules, costs and limits and `docs/ROUND4_QA.md` for tests. This is a bounded two-station demonstration, not yet a complete freeform transport network or a real economic model.

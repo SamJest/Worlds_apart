@@ -1,21 +1,21 @@
-# Worlds Apart roadmap — Round 3 (2026-10-20)
+# Worlds Apart — roadmap after Round 4 preparation
 
-## Present in baseline repository
+### Included in the exported clean baseline (`83f6f4b`)
 
-M1 — Astronomically-scaled Earth-to-Moon scenic railway ride, controls and cameras.
-M2 — Cabin/track refinements, mission phases, viewing options and telemetry.
-M3 — Synthesised atmospheric audio with explicit user-gesture activation.
-M4 — Prelaunch 2/4/6-day moving-lunar-intercept planner with orbital miss feedback.
+- M1–M2: scientifically scaled Earth/Moon appearance, real angular changes, journey controls, train/railway, first-person and external cameras, cabin comfort and diagnostics.
+- M3–M4: generated audio with user-gesture requirements; predicted moving-Moon intercept with 2/4/6-day journey selection.
+- M5a: bounded 3D railway designer, anchor editing on 2D map/sliders, rotatable miniature blueprint, construction constraints and persistent blueprint.
 
-## Prepared in Round 3 change pack (pending Codex integration and real browser QA)
+### Implemented in Round 4 change pack; integration and visual QA outstanding
 
-M5a — **Real 3D waypoint-based guideway construction:** three bound construction anchors, templates, orbit map drag, elevation slider, rotatable Three.js blueprint, validation, fictional materials, markers in the ride, locally saved design and arrival feedback.
+- M6a: **small transport economy and local service rail**: Earth Depot and Orbital Yard, moving cargo train, alloy material inventory and delivery rewards, two yard upgrades, construction costs and saved purchased route catalogue. Both local schematic and near-Earth 3D scene representation.
+- This is *not* a freely routable tycoon network. The two stops, track and freight path remain fixed and station sidings are visual only.
 
-## Next milestones
+### Next (not yet implemented)
 
-M5b — Station and track tooling: free placement along a small bounded Earth-orbit region, snap/link segments, branch and switch handling, repair/undo, save the actual network (not merely the Earth-Moon blueprint).
-M6 — First compact transport economy: collect a single type of building material, load a carriage at Depot A, deliver it to Depot B, reinvest in one railway extension. Start with two stops and one good rather than a generic sprawling tycoon.
-M7 — Second world/route: deliberately choose orbital model, time scale and sizes before adding a new planet. Mars is a candidate only after M6 is fun.
-M8 — Expanded solar system, deeper freight/pax economy and exploration. Profiles, cloud sync or multiplayer only with demonstrated need.
+- M5b: free placement of local track segments and stations, line switches, route pathfinding and switch controls, limited construction budget, undo/redo and persistent network layout.
+- M6b: local goods extraction/finite sources, demand at stations, different freight types, train schedules and fully independent cargo locomotives. Balance materials to avoid a tedious click-grind.
+- M7: one additional destination after polishing M6b, with orbital model and true apparent-size checks; possible Mars leg. Extend arrival/refuelling/freight mechanics.
+- M8: expanded interplanetary economy, exploration, map/route discovery, visual polish, accessibility and mobile optimisation. Cloud sync and multiplayer remain deferred.
 
-Quality gates for each milestone: deterministic state model, no broken Moon/Earth scale, first-person and external view usable, desktop and mobile performance measured, unit and browser tests passing, accessible controls, zero unlicensed assets.
+Quality gate each round: correct source snapshots, safe hash-checked change packs, deterministic reducer tests, full repo compile, browser + touch QA, no console errors, stable apparent sizes and measured rendering performance.

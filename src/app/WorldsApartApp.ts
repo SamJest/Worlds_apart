@@ -1,4 +1,6 @@
 import { AudioEngine } from '../audio/audioEngine.ts'
+import { FreightOperationsUi } from '../ui/freightOperationsUi.ts'
+import { advanceFreight, buildRoute, dispatchFreight, quoteRoute, readFreightState, routeOwnershipId, saveFreightState, upgradeFreightYard, type FreightState } from '../simulation/freightEconomy.ts'
 import { RoutePlannerUi } from '../ui/routePlannerUi.ts'
 import { missionPhaseAt } from '../simulation/missionPhases.ts'
 import { CameraController } from '../camera/cameraController.ts'
@@ -17,6 +19,10 @@ export class WorldsApartApp {
   private readonly config: GameConfig
   private route
   private readonly planner: RoutePlannerUi
+  private readonly freight: FreightOperationsUi
+  private freightState: FreightState = readFreightState()
+  private freightRenderElapsed = 0
+  private freightSaveElapsed = 0
   private readonly audio = new AudioEngine()
   private readonly hud: Hud
   private readonly world: WorldScene
@@ -36,6 +42,7 @@ export class WorldsApartApp {
     this.hud = new Hud(root, config, {
       begin: () => this.planner.open(),
       replan: () => this.replan(),
+      openFreight: () => this.openFreight(),
       showOptions: () => this.showOptions(),
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
       toggleCamera: () => this.toggleCamera(),
@@ -44,12 +51,21 @@ export class WorldsApartApp {
       restart: () => this.dispatch({ type: 'restart' }),
       preferencesChanged: value => this.setPreferences(value),
     }, this.preferences)
-    this.planner = new RoutePlannerUi(root, this.config.journey.arrivalAltitudeKm, (days, design) => this.beginPlanned(days, design))
+    this.planner = new RoutePlannerUi(root, this.config.journey.arrivalAltitudeKm, (days, design) => this.beginPlanned(days, design), {
+      quote: (days, design, units) => quoteRoute(this.freightState, routeOwnershipId(days, design), units),
+      openFreight: () => this.openFreight(true),
+    })
+    this.freight = new FreightOperationsUi(root, {
+      dispatch: () => this.changeFreight(dispatchFreight(this.freightState)),
+      upgrade: () => this.changeFreight(upgradeFreightYard(this.freightState)),
+      close: returnToPlanner => { if (returnToPlanner) this.planner.open() },
+    })
+    this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment?.secondsRemaining ?? null)
     this.world = new WorldScene(this.hud.viewport, this.route, config)
     this.world.setQuality(this.preferences.quality)
     this.camera = new CameraController(this.world.camera, config.camera)
     this.input = new InputController(this.world.renderer.domElement, {
-      canInteract: () => this.state.begun && !this.planner.isOpen,
+      canInteract: () => this.state.begun && !this.planner.isOpen && !this.freight.isOpen,
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
       toggleCamera: () => this.toggleCamera(),
       seekBy: delta => this.dispatch({ type: 'seek', progress: this.state.progress + delta }),
@@ -70,7 +86,9 @@ export class WorldsApartApp {
     window.removeEventListener('resize', this.resize)
     document.removeEventListener('visibilitychange', this.pauseWhenHidden)
     this.input.dispose()
+    this.freight.dispose()
     this.planner.dispose()
+    saveFreightState(this.freightState)
     this.audio.dispose()
     this.diagnostics.dispose()
     this.world.dispose()
@@ -80,9 +98,13 @@ export class WorldsApartApp {
     this.state = updateJourney(this.state, command, this.config.journey)
   }
 
-  private beginPlanned(days: number, design: GuidewayDesign) {
+  private beginPlanned(days: number, design: GuidewayDesign): boolean {
     const constructed = evaluateGuideway(days, this.config.journey.arrivalAltitudeKm, design)
-    if (!constructed.valid) throw new Error('Cannot launch an invalid guideway.')
+    if (!constructed.valid) return false
+    const id = routeOwnershipId(days, design)
+    const quote = quoteRoute(this.freightState, id, constructed.materialUnits)
+    if (quote.shortfall > 0) return false
+    this.changeFreight(buildRoute(this.freightState, id, constructed.materialUnits))
     this.route = constructed.route
     this.world.setRoute(this.route)
     this.state = createInitialJourneyState(this.config.journey)
@@ -92,6 +114,22 @@ export class WorldsApartApp {
     this.audio.start(this.preferences)
     this.audio.cue('launch', this.preferences.soundEnabled ? this.preferences.soundVolume : 0)
     this.dispatch({ type: 'begin' })
+    return true
+  }
+
+  private changeFreight(updated: FreightState) {
+    if (updated === this.freightState) return
+    this.freightState = updated
+    this.freightSaveElapsed = 0
+    saveFreightState(updated)
+    this.freight.render(updated)
+    this.hud.setFreightStats(updated.materials, updated.shipment?.secondsRemaining ?? null)
+  }
+
+  private openFreight(returnToPlanner = false) {
+    if (this.freight.isOpen) return
+    this.dispatch({ type: 'pause' })
+    this.freight.open(this.freightState, returnToPlanner)
   }
 
   private replan() {
@@ -117,15 +155,41 @@ export class WorldsApartApp {
     this.hud.openOptions()
   }
 
-  private readonly pauseWhenHidden = () => { if (document.hidden) this.dispatch({ type: 'pause' }) }
+  private readonly pauseWhenHidden = () => {
+    this.previousTimestamp = undefined
+    if (document.hidden) { this.dispatch({ type: 'pause' }); saveFreightState(this.freightState) }
+  }
 
   private readonly resize = () => this.world.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
 
   private readonly tick = (timestamp: number) => {
-    const elapsed = this.previousTimestamp === undefined ? 0 : Math.min((timestamp - this.previousTimestamp) / 1000, this.config.journey.maximumFrameStepSeconds)
+    const rawElapsed = this.previousTimestamp === undefined ? 0 : Math.max(0, (timestamp - this.previousTimestamp) / 1000)
+    const elapsed = Math.min(rawElapsed, this.config.journey.maximumFrameStepSeconds)
     this.previousTimestamp = timestamp
     this.dispatch({ type: 'advance', elapsedSeconds: elapsed })
-    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion)
+    if (!document.hidden && this.freightState.shipment) {
+      const previous = this.freightState
+      const freightElapsed = Math.min(rawElapsed, 1)
+      this.freightState = advanceFreight(previous, freightElapsed)
+      if (!this.freightState.shipment && previous.shipment) {
+        this.freightSaveElapsed = 0
+        saveFreightState(this.freightState)
+        this.hud.setFreightStats(this.freightState.materials, null)
+      } else {
+        this.freightSaveElapsed += freightElapsed
+        if (this.freightSaveElapsed >= 1) {
+          this.freightSaveElapsed = 0
+          saveFreightState(this.freightState)
+        }
+      }
+    }
+    this.freightRenderElapsed += elapsed
+    if (this.freightRenderElapsed >= 0.2) {
+      this.freightRenderElapsed = 0
+      this.freight.render(this.freightState)
+      if (this.freightState.shipment) this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment.secondsRemaining)
+    }
+    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion, this.freightState)
     this.hud.render(this.state, telemetry)
     this.audio.update(this.preferences, this.state.playing, this.state.progress, missionPhaseAt(this.state.progress).name)
     this.world.render()

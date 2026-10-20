@@ -7,6 +7,8 @@ import { createCelestialBodies } from './bodies.ts'
 import { createCarriage } from './carriage.ts'
 import { createEnvironment } from './environment.ts'
 import { createRailway } from './railway.ts'
+import { createFreightInfrastructure } from './freightInfrastructure.ts'
+import type { FreightState } from '../simulation/freightEconomy.ts'
 
 export interface Telemetry {
   progress: number
@@ -26,6 +28,7 @@ export class WorldScene {
   private readonly bodies
   private railway
   private readonly carriage
+  private readonly freightInfrastructure
   private readonly point = new THREE.Vector3()
   private readonly tangent = new THREE.Vector3()
   private readonly forward = new THREE.Vector3(0, 0, 1)
@@ -42,12 +45,13 @@ export class WorldScene {
     this.bodies = createCelestialBodies(this.renderer, config)
     this.railway = createRailway(route, config)
     this.carriage = createCarriage()
-    this.scene.add(this.environment.group, this.bodies.group, this.railway.group, this.carriage.group)
+    this.freightInfrastructure = createFreightInfrastructure()
+    this.scene.add(this.environment.group, this.bodies.group, this.railway.group, this.carriage.group, this.freightInfrastructure.group)
     viewport.append(this.renderer.domElement)
     this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
   }
 
-  update(progress: number, cameraController: CameraController, elapsedSeconds = 1 / 60, reducedMotion = false): Telemetry {
+  update(progress: number, cameraController: CameraController, elapsedSeconds = 1 / 60, reducedMotion = false, freight?: FreightState): Telemetry {
     // Timeline is distance-based rather than Bézier parameter-based.
     const routeT = this.route.curve.getUtoTmapping(progress, progress * this.route.lengthKm / KILOMETRES_PER_WORLD_UNIT)
     this.route.curve.getPoint(routeT, this.point)
@@ -56,6 +60,7 @@ export class WorldScene {
     this.carriage.group.quaternion.setFromUnitVectors(this.forward, this.tangent)
     this.bodies.update(progress, this.route.simulatedDays)
     this.railway.update(progress, reducedMotion)
+    if (freight) this.freightInfrastructure.update(freight)
     cameraController.apply(this.point, this.tangent, this.bodies.moon.position, elapsedSeconds, reducedMotion)
     const moonDistance = Math.max(MOON_RADIUS, this.bodies.moon.position.distanceTo(this.camera.position))
     return {
@@ -98,6 +103,7 @@ export class WorldScene {
     this.environment.dispose()
     this.bodies.dispose()
     this.railway.dispose()
+    this.freightInfrastructure.dispose()
     this.carriage.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()
