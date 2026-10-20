@@ -51,3 +51,7 @@
 ## Deferred
 
 Transport economy, accounts/backend, save/load and additional destinations require separate milestone briefs. They are not incidental backlog tasks.
+
+## Round 5 status / subsequent backlog (2026-10-20)
+
+Earlier deferred economy and route-construction entries are historical: Rounds 3–4 integrated construction + fixed freight. Round 5 proposes graph-based local network editing with stations, links, shortest routes and finite ore. After integration, prioritise moving/deleting track and stations, junction/crossing rules, independently routed trains, goods-demand balance and scenic-ride polish. Keep source-only and browser verification distinguished in status reports.

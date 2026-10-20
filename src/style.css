@@ -137,3 +137,23 @@ button:focus-visible,input:focus-visible{outline:3px solid #b5f4ff;outline-offse
 .freight-operations .freight-heading{position:static;top:auto;left:auto;right:auto;padding:0;pointer-events:auto}
 .intro #intro-freight{margin-left:10px;background:#153147;color:#d3f3ff;border:1px solid #7299ac;padding:14px 16px}
 @media(max-width:520px){.intro #intro-freight{display:block;margin:0 0 10px}.intro #begin{margin-bottom:8px}}
+
+/* Round 5 — bounded local freight-network editor */
+#freight-network { display: block; width: 100%; height: auto; touch-action: manipulation; user-select: none; }
+#freight-network.placing-station { cursor: crosshair; }
+.network-build-tools { display: flex; gap: .5rem; flex-wrap: wrap; padding: .75rem 0 .25rem; }
+.network-build-tools button, .network-station-button { min-height: 42px; border: 1px solid #587e96; background: #123348; color: #e5f4f8; border-radius: 6px; padding: .55rem .7rem; cursor: pointer; }
+.network-build-tools .network-tool-active { background: #26667e; border-color: #9debd6; }
+.network-build-tools button:disabled { opacity: .42; cursor: not-allowed; }
+.network-message { min-height: 2.3em; margin: .5rem 0; color: #c4e7f6; font-size: .9rem; }
+.network-station-list { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 1rem; }
+.network-station-button { flex: 1 0 120px; font-size: .76rem; }
+.network-station-button:focus-visible, .network-build-tools button:focus-visible, #freight-destination:focus-visible { outline: 3px solid #ffdf93; outline-offset: 2px; }
+#freight-destination { display: block; width: 100%; background: #153b52; color: #fff; padding: .6rem; border: 1px solid #79b4ce; border-radius: 5px; min-height: 44px; }
+#freight-ore-progress { background: #e5ba73; }
+#freight-route-description { color: #c4ebdd; overflow-wrap: anywhere; }
+.network-coordinate-entry { display: flex; align-items: end; flex-wrap: wrap; gap: .65rem; padding: .35rem 0; }
+.network-coordinate-entry label { display: flex; flex-direction: column; gap: .25rem; color: #d5ebf5; font-size: .8rem; }
+.network-coordinate-entry input { max-width: 6.7rem; min-height: 42px; background: #0e3045; color: #fff; border-radius: 4px; border: 1px solid #71a2be; padding: .45rem; }
+.network-coordinate-entry button { min-height: 44px; background: #246b72; color: white; border: 1px solid #b2e7d9; border-radius: 5px; cursor: pointer; padding: .45rem .75rem; }
+.network-coordinate-entry button:disabled { opacity: .45; cursor: not-allowed; }

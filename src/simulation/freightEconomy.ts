@@ -53,10 +53,16 @@ export function buildRoute(state: FreightState, routeId: string, railUnits: numb
   return { ...state, materials: state.materials - quote.price, purchasedRoutes: [...state.purchasedRoutes, routeId] }
 }
 
-export function dispatchFreight(state: FreightState): FreightState {
+/** Optional payload and route distance are supplied by the built local railway. The legacy
+ * call without options retains the original two-depot service and saved-state compatibility. */
+export function dispatchFreight(state: FreightState, options?: { cargo: number; routeLength: number }): FreightState {
   if (state.shipment || state.materials >= MATERIAL_LIMIT) return state
   const tier = FREIGHT_TIERS[state.tier]
-  return { ...state, shipment: { cargo: tier.cargo, secondsRemaining: tier.seconds, totalSeconds: tier.seconds } }
+  const cargo = options?.cargo ?? tier.cargo
+  if (!Number.isSafeInteger(cargo) || cargo < 1 || cargo > tier.cargo || (options && cargo > MATERIAL_LIMIT - state.materials)) return state
+  if (options && (!Number.isFinite(options.routeLength) || options.routeLength < 38 || options.routeLength > 3000)) return state
+  const seconds = options ? Math.min(60, Math.max(6, Math.round(tier.seconds * options.routeLength / 328))) : tier.seconds
+  return { ...state, shipment: { cargo, secondsRemaining: seconds, totalSeconds: seconds } }
 }
 
 /** Advances only while the app is open. Pauses when the tab is hidden; no wall-clock catch-up. */

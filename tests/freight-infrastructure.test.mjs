@@ -17,3 +17,15 @@ test('freight service constructs a separate local guideway, depot stations, and 
   assert.doesNotThrow(() => network.update({ ...base, tier: 2 }))
   assert.doesNotThrow(() => network.dispose())
 })
+
+test('local network rebuilds its 3D rails when a player buys a new station and link', async () => {
+  const { addStation, addLink } = await import('../src/simulation/localRailNetwork.ts')
+  const infrastructure = createFreightInfrastructure()
+  let design = addStation((await import('../src/simulation/localRailNetwork.ts')).initialLocalNetwork(), 235, 78)
+  design = addLink(design, 's0', 's2')
+  infrastructure.update(newFreightState(), design)
+  let count = 0
+  infrastructure.group.traverse(object => { if (object instanceof THREE.Mesh && object.geometry instanceof THREE.TubeGeometry) count++ })
+  assert.ok(count >= 8, 'two connected edges each have multiple structural rails')
+  assert.doesNotThrow(() => infrastructure.dispose())
+})

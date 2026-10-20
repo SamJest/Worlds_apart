@@ -159,6 +159,57 @@ async function runViewport(browser, viewport, debug = false) {
   await page.close()
 }
 
+
+// Round 5: keyboard-friendly station placement, graph connections, freight dispatch
+// along a multi-hop route, and full persistence after a page reload.
+async function runLocalNetworkEditor(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const page = await context.newPage()
+  const failures = []
+  page.on('pageerror', error => failures.push(error.message))
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
+  await page.locator('#intro-freight').click()
+  assert.equal(await page.locator('#freight-station-list button').count(), 2)
+  await page.locator('#freight-placement-x').fill('260')
+  await page.locator('#freight-placement-y').fill('80')
+  await page.locator('#freight-build-coordinate').click()
+  assert.equal(await page.locator('#freight-station-list button').count(), 3)
+  assert.equal(await page.locator('#freight-materials').textContent(), '435')
+  await page.locator('#freight-destination').selectOption('s2')
+  assert.match((await page.locator('#freight-route-description').textContent()) || '', /No track connection/)
+  assert.equal(await page.locator('#freight-dispatch').isDisabled(), true)
+  await page.locator('#freight-link').click()
+  await page.locator('[data-select-network-station="s0"]').click()
+  await page.locator('[data-select-network-station="s2"]').click()
+  assert.match((await page.locator('#freight-route-description').textContent()) || '', /Earth Depot.*Outpost 1/)
+  assert.equal(await page.locator('#freight-dispatch').isDisabled(), false)
+  await page.locator('#freight-placement-x').fill('365')
+  await page.locator('#freight-placement-y').fill('66')
+  await page.locator('#freight-build-coordinate').click()
+  await page.locator('#freight-link').click()
+  await page.locator('[data-select-network-station="s2"]').click()
+  await page.locator('[data-select-network-station="s3"]').click()
+  await page.locator('#freight-destination').selectOption('s3')
+  assert.match((await page.locator('#freight-route-description').textContent()) || '', /Earth Depot.*Outpost 1.*Outpost 2/)
+  await page.locator('#freight-dispatch').click()
+  const network = await page.evaluate(() => JSON.parse(localStorage.getItem('worlds-apart.local-network.v1') || 'null'))
+  assert.equal(network.stations.length, 4)
+  assert.equal(network.links.length, 3)
+  assert.deepEqual(network.activePath.stops, ['s0', 's2', 's3'])
+  assert.equal(network.ore, 205)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.locator('#intro-freight').click()
+  assert.equal(await page.locator('#freight-station-list button').count(), 4)
+  assert.equal(await page.locator('#freight-destination').inputValue(), 's3')
+  assert.equal(await page.locator('#freight-dispatch').isDisabled(), true)
+  const xOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  assert.ok(xOverflow <= 1, `local network UI overflows mobile viewport: ${xOverflow}`)
+  const touchTarget = await page.locator('#freight-build-coordinate').evaluate(e => e.getBoundingClientRect().height)
+  assert.ok(touchTarget >= 40)
+  assert.deepEqual(failures, [])
+  await context.close()
+}
+
 let browser
 try {
   await waitForServer()
@@ -167,6 +218,7 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: configuredExecutable || systemExecutable })
   await runViewport(browser, { width: 1440, height: 900 }, true)
   await runViewport(browser, { width: 390, height: 844 })
+  await runLocalNetworkEditor(browser)
   console.log('Browser smoke passed at desktop and mobile viewports.')
 } finally {
   await browser?.close()

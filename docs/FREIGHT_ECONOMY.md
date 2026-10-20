@@ -33,3 +33,7 @@
 ## Future scope
 
 M5b: free-placement local station segments, junctions and route switches, constrained editable network, construction preview. M6b: finite local goods sources and destination demand, freight receipts, genuinely independent trains and production chains. M7: expand travel to Mars only after the station/freight loop is enjoyable and visual journey quality has passed browser QA.
+
+## Round 5 extension (proposed, not yet integrated)
+
+The fixed two-station limitation and unlimited Earth supplies above describe **Round 4 only**. Round 5 proposes `docs/LOCAL_RAIL_NETWORK.md`: purchasable local stations and segments, shortest-path selection, bounded finite ore supply with visible active-time replenishment, dynamically generated 3D freight rails, and independent validated graph saves. Base alloy balances and owned lunar routes continue using the original `worlds-apart.freight.v1` format. Complete browser QA remains a Codex task.

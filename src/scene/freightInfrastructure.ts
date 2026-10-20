@@ -1,110 +1,117 @@
 import * as THREE from 'three'
 import { EARTH_RADIUS } from '../simulation/astronomy.ts'
+import { initialLocalNetwork, shortestRailPath, stationById, type LocalRailNetwork, type LocalStation } from '../simulation/localRailNetwork.ts'
 import type { FreightState } from '../simulation/freightEconomy.ts'
 
-/**
- * Local Earth-orbit service. Distances, station dimensions and cargo technology are
- * fictional/visually exaggerated. It is separate from the astronomical Earth–Moon rail.
- */
+/** Visual mapping of the user-built local schematic. This is deliberately an exaggerated
+ * Earth-orbit construction zone, not a claim of geostationary orbital dynamics. */
+export function localStationWorldPosition(station: LocalStation): THREE.Vector3 {
+  const x = (station.x - 93) / 328
+  return new THREE.Vector3(EARTH_RADIUS + .08 + x * .32, .03 + (145 - station.y) * .00065,
+    -.11 - x * .12 + (station.y - 145) * .0009)
+}
+
 export function createFreightInfrastructure() {
   const group = new THREE.Group()
-  const geometries: THREE.BufferGeometry[] = []
-  const materials: THREE.Material[] = []
-  const metal = new THREE.MeshStandardMaterial({ color: 0x688da3, metalness: .7, roughness: .3 })
-  const dark = new THREE.MeshStandardMaterial({ color: 0x213b50, metalness: .5, roughness: .48 })
-  const luminous = new THREE.MeshBasicMaterial({ color: 0x85e3ee })
-  const cargo = new THREE.MeshStandardMaterial({ color: 0xe2b76d, metalness: .35, roughness: .45 })
-  const sidingMaterial = new THREE.MeshStandardMaterial({ color: 0xb0dccb, metalness: .7, roughness: .35 })
-  materials.push(metal, dark, luminous, cargo, sidingMaterial)
-
-  const path = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(EARTH_RADIUS + .08, .03, -.11),
-    new THREE.Vector3(EARTH_RADIUS + .14, .06, -.16),
-    new THREE.Vector3(EARTH_RADIUS + .27, .055, -.21),
-    new THREE.Vector3(EARTH_RADIUS + .40, .035, -.23),
-  ])
-  const start = path.getPoint(0)
-  const end = path.getPoint(1)
-  const drawTube = (curve: THREE.Curve<THREE.Vector3>, radius: number, material: THREE.Material) => {
-    const geometry = new THREE.TubeGeometry(curve, 72, radius, 6, false)
-    geometries.push(geometry)
-    const mesh = new THREE.Mesh(geometry, material)
-    group.add(mesh)
-    return mesh
+  const networkGroup = new THREE.Group()
+  group.add(networkGroup)
+  const metal = new THREE.MeshStandardMaterial({ color: 0x83b4c6, metalness: .72, roughness: .33 })
+  const base = new THREE.MeshStandardMaterial({ color: 0x24465e, metalness: .52, roughness: .45 })
+  const platform = new THREE.MeshStandardMaterial({ color: 0x77d4c2, metalness: .55, roughness: .4 })
+  const cargo = new THREE.MeshStandardMaterial({ color: 0xe9c27d, metalness: .25, roughness: .35 })
+  const light = new THREE.MeshBasicMaterial({ color: 0xaaf3e7 })
+  const materials = [metal, base, platform, cargo, light]
+  const stationRingGeometry = new THREE.TorusGeometry(.019, .0038, 7, 18)
+  const stationBaseGeometry = new THREE.CylinderGeometry(.014, .019, .013, 10)
+  const beaconGeometry = new THREE.SphereGeometry(.006, 10, 8)
+  const sleeperGeometry = new THREE.BoxGeometry(.009, .003, .026)
+  const carriageGeometry = new THREE.BoxGeometry(.027, .017, .021)
+  const cargoGeometry = new THREE.BoxGeometry(.018, .008, .017)
+  const sharedGeometries = [stationRingGeometry, stationBaseGeometry, beaconGeometry, sleeperGeometry, carriageGeometry, cargoGeometry]
+  const dynamicGeometries: THREE.BufferGeometry[] = []
+  const carriage = new THREE.Group()
+  carriage.add(new THREE.Mesh(carriageGeometry, metal))
+  const crate = new THREE.Mesh(cargoGeometry, cargo)
+  crate.position.y = .011
+  carriage.add(crate)
+  group.add(carriage)
+  const vectorX = new THREE.Vector3(1, 0, 0)
+  const pointA = new THREE.Vector3(), pointB = new THREE.Vector3()
+  let signature = ''
+  const rebuild = (network: LocalRailNetwork) => {
+    while (networkGroup.children.length) {
+      const child = networkGroup.children[0]
+      if (child instanceof THREE.InstancedMesh) child.dispose()
+      networkGroup.remove(child)
+    }
+    for (const geo of dynamicGeometries.splice(0)) geo.dispose()
+    for (const edge of network.links) {
+      const a = stationById(network, edge.a)!, b = stationById(network, edge.b)!
+      const start = localStationWorldPosition(a), end = localStationWorldPosition(b)
+      const line = new THREE.LineCurve3(start, end)
+      const tangent = end.clone().sub(start).normalize()
+      const lateral = new THREE.Vector3(0, 1, 0).cross(tangent).normalize().multiplyScalar(.008)
+      for (const sign of [-1, -.4, .4, 1]) {
+        const offset = lateral.clone().multiplyScalar(sign)
+        const tube = new THREE.TubeGeometry(new THREE.LineCurve3(start.clone().add(offset), end.clone().add(offset)), 12, Math.abs(sign) < .5 ? .0009 : .0017, 5, false)
+        dynamicGeometries.push(tube)
+        networkGroup.add(new THREE.Mesh(tube, metal))
+      }
+      const count = Math.max(2, Math.min(50, Math.round(start.distanceTo(end) / .012)))
+      const sleepers = new THREE.InstancedMesh(sleeperGeometry, base, count)
+      const tmp = new THREE.Object3D()
+      for (let i = 0; i < count; i++) {
+        tmp.position.copy(line.getPoint((i + .5) / count))
+        tmp.quaternion.setFromUnitVectors(vectorX, tangent)
+        tmp.updateMatrix()
+        sleepers.setMatrixAt(i, tmp.matrix)
+      }
+      sleepers.instanceMatrix.needsUpdate = true
+      networkGroup.add(sleepers)
+    }
+    for (const station of network.stations) {
+      const origin = localStationWorldPosition(station)
+      const torus = new THREE.Mesh(stationRingGeometry, station.id === 's0' ? light : platform)
+      torus.rotation.x = Math.PI / 2
+      torus.position.copy(origin)
+      const pier = new THREE.Mesh(stationBaseGeometry, base)
+      pier.position.copy(origin).add(new THREE.Vector3(0, -.014, 0))
+      const beacon = new THREE.Mesh(beaconGeometry, light)
+      beacon.position.copy(origin).add(new THREE.Vector3(0, .021, 0))
+      networkGroup.add(torus, pier, beacon)
+    }
   }
-  const offset = new THREE.Vector3(0, .004, 0)
-  const side = new THREE.Vector3(0, 0, .013)
-  for (const sign of [-1, 1]) {
-    const points = path.getPoints(48).map((point: THREE.Vector3) => point.clone().addScaledVector(side, sign).add(offset))
-    drawTube(new THREE.CatmullRomCurve3(points), .0026, metal)
-  }
-  drawTube(path, .0018, dark)
-  const sleeperGeometry = new THREE.BoxGeometry(.028, .004, .04)
-  geometries.push(sleeperGeometry)
-  const sleepers = new THREE.InstancedMesh(sleeperGeometry, dark, 29)
-  const dummy = new THREE.Object3D()
-  const along = new THREE.Vector3(1, 0, 0)
-  for (let i = 0; i < 29; i++) {
-    const t = (i + .5) / 29
-    dummy.position.copy(path.getPoint(t))
-    dummy.quaternion.setFromUnitVectors(along, path.getTangent(t))
-    dummy.updateMatrix()
-    sleepers.setMatrixAt(i, dummy.matrix)
-  }
-  sleepers.instanceMatrix.needsUpdate = true
-  group.add(sleepers)
 
-  const torusGeometry = new THREE.TorusGeometry(.036, .006, 7, 25)
-  const pierGeometry = new THREE.CylinderGeometry(.018, .025, .027, 10)
-  const globeGeometry = new THREE.SphereGeometry(.009, 12, 8)
-  geometries.push(torusGeometry, pierGeometry, globeGeometry)
-  for (const [index, position] of [start, end].entries()) {
-    const platform = new THREE.Mesh(torusGeometry, index === 0 ? luminous : sidingMaterial)
-    platform.position.copy(position)
-    platform.rotation.x = Math.PI / 2
-    group.add(platform)
-    const base = new THREE.Mesh(pierGeometry, dark)
-    base.position.copy(position).add(new THREE.Vector3(0, -.025, 0))
-    group.add(base)
-    const beacon = new THREE.Mesh(globeGeometry, luminous)
-    beacon.position.copy(position).add(new THREE.Vector3(0, .044, 0))
-    group.add(beacon)
-  }
-
-  const siding = drawTube(new THREE.CatmullRomCurve3([
-    path.getPoint(.35).clone().add(new THREE.Vector3(0, 0, .005)),
-    path.getPoint(.54).clone().add(new THREE.Vector3(0, 0, -.055)),
-    end.clone().add(new THREE.Vector3(0, 0, -.055)),
-  ]), .003, sidingMaterial)
-  siding.visible = false
-  const cargoGeometry = new THREE.BoxGeometry(.042, .025, .033)
-  const windowGeometry = new THREE.BoxGeometry(.015, .010, .035)
-  geometries.push(cargoGeometry, windowGeometry)
-  const shuttle = new THREE.Group()
-  const chassis = new THREE.Mesh(cargoGeometry, cargo)
-  const window = new THREE.Mesh(windowGeometry, dark)
-  window.position.set(.008, .006, 0)
-  shuttle.add(chassis, window)
-  group.add(shuttle)
-  const stationExtensionGeometry = new THREE.BoxGeometry(.078, .014, .071)
-  geometries.push(stationExtensionGeometry)
-  const extension = new THREE.Mesh(stationExtensionGeometry, metal)
-  extension.position.copy(end).add(new THREE.Vector3(.028, -.015, -.028))
-  extension.visible = false
-  group.add(extension)
-
-  const forward = new THREE.Vector3(1, 0, 0)
-  const update = (state: FreightState) => {
-    const fraction = state.shipment ? 1 - state.shipment.secondsRemaining / state.shipment.totalSeconds : 0
-    const t = THREE.MathUtils.clamp(fraction, 0, 1)
-    shuttle.position.copy(path.getPoint(t)).add(offset)
-    shuttle.quaternion.setFromUnitVectors(forward, path.getTangent(t))
-    siding.visible = state.tier >= 1
-    extension.visible = state.tier >= 2
+  const update = (freight: FreightState, network: LocalRailNetwork = initialLocalNetwork()) => {
+    const currentSignature = network.stations.map(s => `${s.id},${s.x},${s.y}`).join('|')
+      + '/' + network.links.map(l => `${l.a}:${l.b}`).join('|')
+    if (currentSignature !== signature) { signature = currentSignature; rebuild(network) }
+    const path = network.activePath ?? (freight.shipment ? shortestRailPath(network, 's1') : null)
+    const fraction = freight.shipment ? THREE.MathUtils.clamp(1 - freight.shipment.secondsRemaining / freight.shipment.totalSeconds, 0, 1) : 0
+    if (!path) {
+      carriage.position.copy(localStationWorldPosition(network.stations[0]))
+      carriage.quaternion.identity()
+      return
+    }
+    let remaining = path.length * fraction
+    for (let i = 1; i < path.stops.length; i++) {
+      const a = stationById(network, path.stops[i - 1])!, b = stationById(network, path.stops[i])!
+      const length = Math.hypot(b.x - a.x, b.y - a.y)
+      const alpha = Math.min(1, remaining / length)
+      pointA.copy(localStationWorldPosition(a))
+      pointB.copy(localStationWorldPosition(b))
+      carriage.position.copy(pointA).lerp(pointB, alpha)
+      carriage.quaternion.setFromUnitVectors(vectorX, pointB.sub(pointA).normalize())
+      remaining = Math.max(0, remaining - length)
+      if (remaining < 1e-5) break
+    }
   }
   const dispose = () => {
-    for (const geometry of geometries) geometry.dispose()
+    networkGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) object.dispose() })
+    for (const geometry of dynamicGeometries) geometry.dispose()
+    for (const geometry of sharedGeometries) geometry.dispose()
     for (const material of materials) material.dispose()
   }
+  update({ shipment: null } as FreightState, initialLocalNetwork())
   return { group, update, dispose }
 }
