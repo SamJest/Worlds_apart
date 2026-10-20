@@ -1,0 +1,77 @@
+import { CameraController } from '../camera/cameraController.ts'
+import { defaultGameConfig, validateGameConfig, type GameConfig } from '../config/gameConfig.ts'
+import { DiagnosticsOverlay } from '../diagnostics/diagnosticsOverlay.ts'
+import { InputController } from '../input/inputController.ts'
+import { WorldScene } from '../scene/worldScene.ts'
+import { createEarthMoonRoute } from '../simulation/astronomy.ts'
+import { createInitialJourneyState, updateJourney, type JourneyCommand, type JourneyState } from '../simulation/journeyState.ts'
+import { Hud } from '../ui/hud.ts'
+
+export class WorldsApartApp {
+  private readonly config: GameConfig
+  private readonly route
+  private readonly hud: Hud
+  private readonly world: WorldScene
+  private readonly camera: CameraController
+  private readonly input: InputController
+  private readonly diagnostics: DiagnosticsOverlay
+  private state: JourneyState
+  private animationFrame = 0
+  private previousTimestamp: number | undefined
+
+  constructor(root: HTMLElement, config: GameConfig = defaultGameConfig) {
+    this.config = validateGameConfig(config)
+    this.route = createEarthMoonRoute(config.journey.simulatedDays, config.journey.arrivalAltitudeKm)
+    this.state = createInitialJourneyState(config.journey)
+    this.hud = new Hud(root, config, {
+      begin: () => this.dispatch({ type: 'begin' }),
+      togglePlay: () => this.dispatch({ type: 'toggle-play' }),
+      toggleCamera: () => this.toggleCamera(),
+      nextSpeed: () => this.dispatch({ type: 'next-speed' }),
+      seek: progress => this.dispatch({ type: 'seek', progress }),
+      restart: () => this.dispatch({ type: 'restart' }),
+    })
+    this.world = new WorldScene(this.hud.viewport, this.route, config)
+    this.camera = new CameraController(this.world.camera, config.camera)
+    this.input = new InputController(this.world.renderer.domElement, {
+      togglePlay: () => this.dispatch({ type: 'toggle-play' }),
+      toggleCamera: () => this.toggleCamera(),
+      seekBy: delta => this.dispatch({ type: 'seek', progress: this.state.progress + delta }),
+      look: (deltaX, deltaY) => this.camera.look(deltaX, deltaY),
+      zoom: direction => this.camera.zoom(direction),
+    })
+    this.diagnostics = new DiagnosticsOverlay(root, new URLSearchParams(window.location.search).get('debug') === '1')
+    window.addEventListener('resize', this.resize)
+    console.info(`Worlds Apart: ${formatNumber(this.route.lengthKm)} km adaptive rail; Earth-Moon mean separation 384,400 km; target at ${formatNumber(this.route.arrivalMoon.length() * 1000)} km; arrival point ${formatNumber(this.route.end.length() * 1000)} km from Earth; departure ${formatNumber(this.route.start.length() * 1000)} km.`)
+    this.animationFrame = requestAnimationFrame(this.tick)
+  }
+
+  dispose() {
+    cancelAnimationFrame(this.animationFrame)
+    window.removeEventListener('resize', this.resize)
+    this.input.dispose()
+    this.diagnostics.dispose()
+    this.world.dispose()
+  }
+
+  private dispatch(command: JourneyCommand) {
+    this.state = updateJourney(this.state, command, this.config.journey)
+  }
+
+  private toggleCamera() { this.camera.toggleMode() }
+
+  private readonly resize = () => this.world.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
+
+  private readonly tick = (timestamp: number) => {
+    const elapsed = this.previousTimestamp === undefined ? 0 : Math.min((timestamp - this.previousTimestamp) / 1000, this.config.journey.maximumFrameStepSeconds)
+    this.previousTimestamp = timestamp
+    this.dispatch({ type: 'advance', elapsedSeconds: elapsed })
+    const telemetry = this.world.update(this.state.progress, this.camera)
+    this.hud.render(this.state, telemetry)
+    this.world.render()
+    this.diagnostics.update(elapsed, telemetry, this.world.renderer)
+    this.animationFrame = requestAnimationFrame(this.tick)
+  }
+}
+
+const formatNumber = (value: number) => Math.round(value).toLocaleString('en-GB')
