@@ -1,17 +1,17 @@
-# WORLDS APART — milestone 1
+# WORLDS APART
 
 A playable Earth-to-Moon railway ride built with Three.js, TypeScript and Vite. No account, data service, or transport economy is required.
 
 ## Launch
 
-Install [Node.js 20.19+ or 22.12+](https://nodejs.org/), then in this repository run:
+Install [Node.js 20.19+ or 22.12+](https://nodejs.org/), then run:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Open the local address printed by Vite (usually `http://localhost:5173`). Choose **Begin journey**. The full ride takes three minutes at 1×; use 4× or 16× to see it sooner. `npm run build` creates a production bundle in `dist`; `npm run preview` serves that bundle. `npm test` runs the model checks.
+Open the local address printed by Vite (usually `http://localhost:5173`). Choose **Begin journey**. The full ride takes three minutes at 1×; use 4× or 16× to see it sooner.
 
 ## Controls and testing
 
@@ -27,3 +27,13 @@ One Three.js unit represents 1,000 km. Earth and Moon mean radii are 6,371 km an
 The adaptive rail's variable gauge, continuous unsupported structure, carriage propulsion and accelerated travel are **fictional technology**. The real Earth-Moon system has orbital inclination, eccentricity, libration, solar illumination changes and rotating reference frames omitted here. The track is a cinematic route rather than a physically viable orbital transfer. The arrival is at a near-side altitude of 25 km in this prototype, not a surface landing. The distance telemetry uses instantaneous geometric distance; the route length can differ from the straight-line separation.
 
 Rendering uses capped pixel ratio, instanced sleepers, shared globe geometry, procedural textures generated once, and a single animation loop. The app makes no runtime asset requests except the optional Google Fonts stylesheet; system fonts are the fallback.
+
+## Checks and diagnostics
+
+`npm run check` runs unit tests, collaboration-tool safety tests, the TypeScript production build and Playwright browser smoke tests at desktop and mobile sizes. Individual commands are `npm test`, `npm run test:tools`, `npm run build` and `npm run test:browser`. Append `?debug=1` to the local URL for an unobtrusive FPS, frame-time, camera, position and renderer overlay.
+
+## ChatGPT collaboration
+
+From a clean committed tree, run `npm run context:export`. Attach `exports/CHATGPT_CONTEXT.zip` to a normal ChatGPT chat and use [the reusable prompt](docs/CHATGPT_MASTER_PROMPT.md). ChatGPT can return a bounded change-pack JSON; check it with `npm run change:check -- path/to/change.json`, then apply it explicitly with `npm run change:apply -- path/to/change.json --apply`.
+
+Read [the simple workflow](docs/CHATGPT_WORKFLOW.md) before first use. Project details live in [project state](docs/PROJECT_STATE.md), [architecture](docs/ARCHITECTURE.md), [game vision](docs/GAME_VISION.md), [roadmap](docs/ROADMAP.md), [testing](docs/TESTING.md) and [decisions](docs/DECISIONS.md).
