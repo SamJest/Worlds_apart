@@ -1,3 +1,5 @@
+import { formatSite, readRideSites, saveRideSites, type RideSites, type SurfaceBodyId } from '../simulation/surfaceSites.ts'
+import { SurfacePickerUi } from './surfacePickerUi.ts'
 import { createEarthMoonRoute, MOON_DISTANCE } from '../simulation/astronomy.ts'
 import { defaultRoutePlan, evaluateIntercept, type RouteDurationDays, type RoutePlan, ROUTE_DURATION_OPTIONS } from '../simulation/routePlanner.ts'
 import { addGuidewayNode, applyGuidewayPreset, MAX_GUIDEWAY_NODES, readGuidewayDesign, removeGuidewayNode, saveGuidewayDesign, updateGuidewayNode, type GuidewayDesign, type RidePreset } from '../simulation/constructionPlan.ts'
@@ -28,6 +30,8 @@ export class RoutePlannerUi {
   private readonly freightAction: HTMLButtonElement
 
   private plan: RoutePlan = { ...defaultRoutePlan }
+  private sites: RideSites = readRideSites()
+  private sitePicker: SurfacePickerUi | undefined
   private dragging = false
   private draggingNodeId: number | null = null
   private design: GuidewayDesign = readGuidewayDesign()
@@ -37,7 +41,7 @@ export class RoutePlannerUi {
   private preview: ConstructionPreview | undefined
   private readonly priorInert = new Map<HTMLElement, boolean>()
 
-  constructor(root: HTMLElement, private readonly arrivalAltitudeKm: number, private readonly onConfirm: (days: RouteDurationDays, design: GuidewayDesign) => boolean,
+  constructor(root: HTMLElement, private readonly arrivalAltitudeKm: number, private readonly onConfirm: (days: RouteDurationDays, design: GuidewayDesign, sites: RideSites) => boolean,
     private readonly economy: { quote(days: RouteDurationDays, design: GuidewayDesign, units: number): RouteCost; openFreight(): void }) {
     const panel = document.createElement('section')
     panel.className = 'route-planner hidden'
@@ -59,7 +63,7 @@ export class RoutePlannerUi {
         <circle id="planner-future" r="8" class="orbit-future"/><circle id="planner-aim-glow" r="13" class="orbit-aim-glow" filter="url(#target-glow)"/><circle id="planner-aim" r="5.5" class="orbit-aim"/>
         <text id="planner-target-label" class="orbit-label orbit-label-active">PREDICTED ARRIVAL</text>
       </svg><div class="construction-preview-caption">LIVE 3D BLUEPRINT · DRAG TO ROTATE · SCROLL TO ZOOM · PLANETS ENLARGED</div><div id="construction-viewport" class="construction-viewport" aria-label="Rotatable three-dimensional guideway blueprint"></div><div class="orbit-legend"><span><i class="key-track"></i> Proposed track</span><span><i class="key-intercept"></i> Moon at arrival</span><span><i class="key-aim"></i> Your target</span></div></div>
-      <div class="planner-controls"><div class="planner-control-group"><h2>01 / Travel duration</h2><p>Choose how far the Moon moves before you arrive.</p><div class="duration-choices" role="group" aria-label="Simulated travel days">${ROUTE_DURATION_OPTIONS.map(days => `<button type="button" data-plan-days="${days}" aria-pressed="${days === 4}">${days} DAYS</button>`).join('')}</div></div>
+      <div class="planner-controls"><div class="planner-control-group site-controls"><h2>WHERE WILL YOU LAUNCH AND ARRIVE?</h2><p>Choose exact points on the Earth and Moon. No GPS or location search required.</p><div class="site-control-buttons"><button type="button" data-pick-body="earth">🌍 <span>EARTH LAUNCH</span><small id="site-start">—</small></button><button type="button" data-pick-body="moon">🌕 <span>MOON ARRIVAL</span><small id="site-arrival">—</small></button></div><small class="site-artwork-disclaimer">Coordinates are geographically defined; the current globe is stylised rather than satellite imagery.</small></div><div class="planner-control-group"><h2>01 / Travel duration</h2><p>Choose how far the Moon moves before you arrive.</p><div class="duration-choices" role="group" aria-label="Simulated travel days">${ROUTE_DURATION_OPTIONS.map(days => `<button type="button" data-plan-days="${days}" aria-pressed="${days === 4}">${days} DAYS</button>`).join('')}</div></div>
         <div class="planner-control-group optional-intercept"><h2>OPTIONAL ORBITAL AIMING</h2><p>Drag the orange orbit marker or fine-tune the slider.</p><label class="planner-range-label" for="planner-offset">TARGET OFFSET <strong id="planner-angle">0.0°</strong></label><input id="planner-offset" type="range" min="-12" max="12" value="0" step="0.1" aria-label="Target offset in degrees"/><button id="planner-snap" type="button">✦ SNAP TO RENDEZVOUS</button></div>
         <div class="planner-control-group construction-controls"><h2>CHOOSE YOUR TRACK</h2><p>Every style changes the 3D railway the carriage rides.</p>
           <div class="construction-presets" role="group" aria-label="Guideway templates"><button type="button" data-construction-preset="direct">DIRECT</button><button type="button" data-construction-preset="arc">WIDE ARC</button><button type="button" data-construction-preset="high">HIGH SCENIC</button><button type="button" data-construction-preset="corkscrew">CORKSCREW</button><button type="button" data-construction-preset="wave">ZERO-G WAVES</button><button type="button" data-construction-preset="slalom">COSMIC SLALOM</button><button type="button" data-construction-preset="dive">DEEP-SPACE DIVE</button></div>
@@ -100,6 +104,7 @@ export class RoutePlannerUi {
     this.balance = required('#planner-wallet')
     this.freightAction = required<HTMLButtonElement>('#planner-freight')
     this.freightAction.addEventListener('click', () => { this.close(false); this.economy.openFreight() })
+    panel.querySelectorAll<HTMLButtonElement>('[data-pick-body]').forEach(button => button.addEventListener('click', () => this.pickSite(button.dataset.pickBody as SurfaceBodyId)))
     required<HTMLButtonElement>('#construction-add').addEventListener('click', () => {
       this.design = addGuidewayNode(this.design)
       this.activePreset = null
@@ -144,10 +149,11 @@ export class RoutePlannerUi {
     this.snap.addEventListener('click', () => { this.plan = { ...this.plan, offsetDegrees: 0 }; this.render(); this.confirm.focus() })
     this.confirm.addEventListener('click', () => {
       this.plan = { ...this.plan, offsetDegrees: 0 } // Destination is automatically targeted.
-      const result = evaluateGuideway(this.plan.days, this.arrivalAltitudeKm, this.design)
+      const result = evaluateGuideway(this.plan.days, this.arrivalAltitudeKm, this.design, this.sites)
       if (!result.valid) { this.render(); return }
-      if (!this.onConfirm(this.plan.days, this.design)) { this.render(); return }
-      this.constructionSave.textContent = saveGuidewayDesign(this.design) ? 'Blueprint saved to this browser.' : 'Local saving is disabled in this browser.'
+      if (!this.onConfirm(this.plan.days, this.design, this.sites)) { this.render(); return }
+      saveRideSites(this.sites)
+      this.constructionSave.textContent = saveGuidewayDesign(this.design) ? 'Blueprint and locations saved to this browser.' : 'Local saving is disabled in this browser.'
       this.close(false)
     })
     required<HTMLButtonElement>('#planner-back').addEventListener('click', () => this.close())
@@ -192,13 +198,29 @@ export class RoutePlannerUi {
   close(restoreFocus = true) {
     this.dragging = false
     this.draggingNodeId = null
+    this.sitePicker?.dispose()
+    this.sitePicker = undefined
     this.panel.classList.add('hidden')
     for (const [element, wasInert] of this.priorInert) element.inert = wasInert
     this.priorInert.clear()
     if (restoreFocus) this.panel.parentElement?.querySelector<HTMLButtonElement>('#begin')?.focus()
   }
 
-  dispose() { this.preview?.dispose(); this.preview = undefined }
+  dispose() { this.sitePicker?.dispose(); this.preview?.dispose(); this.preview = undefined }
+
+  private pickSite(body: SurfaceBodyId) {
+    this.sitePicker?.dispose()
+    const selected = body === 'earth' ? this.sites.start : this.sites.arrival
+    try {
+      this.sitePicker = new SurfacePickerUi(this.panel, selected, value => {
+        this.sites = body === 'earth' ? { ...this.sites, start: value } : { ...this.sites, arrival: value }
+        this.render()
+      })
+    } catch (error) {
+      console.error('Surface selection unavailable', error)
+      this.constructionMessage.textContent = 'Location picker could not open. Previous sites are unchanged.'
+    }
+  }
 
   private updateNodeFromPointer(event: PointerEvent): void {
     const node = this.design.nodes.find(item => item.id === this.draggingNodeId)
@@ -208,7 +230,7 @@ export class RoutePlannerUi {
     const source = this.visual.createSVGPoint()
     source.x = event.clientX; source.y = event.clientY
     const local = source.matrixTransform(matrix.inverse())
-    const reference = createEarthMoonRoute(this.plan.days, this.arrivalAltitudeKm)
+    const reference = createEarthMoonRoute(this.plan.days, this.arrivalAltitudeKm, this.sites)
     const centre = reference.curve.getPoint(node.fraction)
     const lateral = guidewayAnchor(reference, node.fraction, 1000, 0).sub(centre)
     const cx = centre.x * 158 / MOON_DISTANCE, cy = -centre.z * 158 / MOON_DISTANCE
@@ -239,7 +261,9 @@ export class RoutePlannerUi {
 
   private render() {
     const result = evaluateIntercept(this.plan)
-    const construction = evaluateGuideway(this.plan.days, this.arrivalAltitudeKm, this.design)
+    this.panel.querySelector('#site-start')!.textContent = formatSite(this.sites.start)
+    this.panel.querySelector('#site-arrival')!.textContent = formatSite(this.sites.arrival)
+    const construction = evaluateGuideway(this.plan.days, this.arrivalAltitudeKm, this.design, this.sites)
     const route = construction.route
     const scale = 158 / MOON_DISTANCE
     const projected = route.curve.getPoints(72).map((point: { x: number, z: number }, index: number) => `${index === 0 ? 'M' : 'L'}${(point.x * scale).toFixed(2)},${(-point.z * scale).toFixed(2)}`).join(' ')

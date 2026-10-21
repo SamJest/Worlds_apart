@@ -21,6 +21,22 @@ describe('3D construction route, verified with real Three.js in repository', () 
       }
     }
   })
+  it('keeps selected geographic endpoints safe across every template and duration', () => {
+    const sites = {
+      start: { body: 'earth', latDeg: 51.8892, lonDeg: 0.9042, elevationMeters: 0, headingDeg: 90 },
+      arrival: { body: 'moon', latDeg: 0, lonDeg: 0, elevationMeters: 0, headingDeg: 0 },
+    }
+    for (const days of [2, 4, 6]) for (const kind of templates) {
+      const { route, valid, warnings } = evaluateGuideway(days, 25, applyGuidewayPreset(kind), sites)
+      assert.equal(valid, true, `${days}d ${kind}: ${warnings.join('; ')}`)
+      assert.deepEqual(route.sites, sites)
+      for (let i = 1; i < 200; i++) {
+        const position = route.curve.getPoint(route.curve.getUtoTmapping(i / 200))
+        assert.ok(position.length() > EARTH_RADIUS, `${days}d ${kind} must clear Earth`)
+        assert.ok(position.distanceTo(route.arrivalMoon) > MOON_RADIUS, `${days}d ${kind} must clear the Moon`)
+      }
+    }
+  })
   it('really reroutes the carriage through editable 3D construction anchors', () => {
     const base = createEarthMoonRoute(4, 25)
     const result = evaluateGuideway(4, 25, applyGuidewayPreset('high'))

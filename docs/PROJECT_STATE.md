@@ -14,3 +14,7 @@
 - Earth gets a separate translucent cloud sphere and fresnel day/night atmospheric rim, with added lunar maria and simple bump relief. Planet radii and apparent-size mathematics remain unchanged.
 - Nearby instanced luminous rail hoops create motion and spatial cadence. Battery saver draws fewer hoops and disables the richer sky; reduced-motion freezes sky twinkle. The glass-roof observatory preserves the view behind and above.
 - Desktop Chromium and a 390×844 touch-emulated Chromium viewport are verified with real WebGL, shader-console monitoring and screenshots. A physical midrange Android performance pass remains a device QA task.
+
+## Round 09 geographic location selector
+
+See `docs/GEO_SITE_PASS_QA.md` and `docs/PRODUCT_SCOPE_GEO_ADDON.md`. The game now has separately saved geographic Earth launch and Moon arrival selectors, a touch-friendly 3D pickable mini-globe, and a selected-site-based Earth–Moon guideway. Codex verified the full build and browser suite at desktop, portrait-mobile and landscape-mobile sizes. Round 08 visuals, 360 camera and creative construction remain intact; freight/material management remains dormant. Geographic artwork is still stylised, and dynamically reattaching terminal rail to a spinning body remains future work.

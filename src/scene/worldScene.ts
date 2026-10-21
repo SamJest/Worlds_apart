@@ -51,6 +51,7 @@ export class WorldScene {
     this.scene.background = new THREE.Color(0x020611)
     this.environment = createEnvironment(config)
     this.bodies = createCelestialBodies(this.renderer, config)
+    this.bodies.setSites(route.sites)
     this.railway = createRailway(route, config)
     this.carriage = createCarriage()
     this.freightInfrastructure = createFreightInfrastructure()
@@ -102,6 +103,7 @@ export class WorldScene {
     this.scene.remove(this.railway.group)
     this.railway.dispose()
     this.route = route
+    this.bodies.setSites(route.sites)
     this.railway = createRailway(route, this.config)
     this.scene.add(this.railway.group)
     this.railway.setQuality(this.quality)

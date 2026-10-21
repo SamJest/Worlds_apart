@@ -1,3 +1,4 @@
+import type { RideSites } from '../simulation/surfaceSites.ts'
 import { AudioEngine } from '../audio/audioEngine.ts'
 import { addLink, addStation, advanceNetworkProduction, beginNetworkShipment, completeNetworkShipment, linkCost, removeLink, removeStation, selectDestination, shortestRailPath, stationById, STATION_PRICE, type LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 import { FreightOperationsUi } from '../ui/freightOperationsUi.ts'
@@ -67,7 +68,7 @@ export class WorldsApartApp {
       restart: () => this.dispatch({ type: 'restart' }),
       preferencesChanged: value => this.setPreferences(value),
     }, this.preferences)
-    this.planner = new RoutePlannerUi(root, this.config.journey.arrivalAltitudeKm, (days, design) => this.beginPlanned(days, design), {
+    this.planner = new RoutePlannerUi(root, this.config.journey.arrivalAltitudeKm, (days, design, sites) => this.beginPlanned(days, design, sites), {
       quote: (days, design, units) => quoteRoute(this.freightState, routeOwnershipId(days, design), units),
       openFreight: () => this.openFreight(true),
     })
@@ -124,8 +125,8 @@ export class WorldsApartApp {
     this.state = updateJourney(this.state, command, this.config.journey)
   }
 
-  private beginPlanned(days: number, design: GuidewayDesign): boolean {
-    const constructed = evaluateGuideway(days, this.config.journey.arrivalAltitudeKm, design)
+  private beginPlanned(days: number, design: GuidewayDesign, sites: RideSites): boolean {
+    const constructed = evaluateGuideway(days, this.config.journey.arrivalAltitudeKm, design, sites)
     if (!constructed.valid) return false
     // Unlimited creative mode: all track designs are free, including repeat rides.
     this.route = constructed.route

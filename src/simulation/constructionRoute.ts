@@ -1,3 +1,4 @@
+import type { RideSites } from './surfaceSites.ts'
 import { scenicOffsetAt } from './scenicProfile.ts'
 import * as THREE from 'three'
 import { createEarthMoonRoute, EARTH_RADIUS, KILOMETRES_PER_WORLD_UNIT, MOON_RADIUS, type EarthMoonRoute } from './astronomy.ts'
@@ -27,8 +28,8 @@ export function guidewayAnchor(reference: EarthMoonRoute, fraction: number, late
  * Ends are constrained to preserve the rendezvous, departure orientation and lunar approach.
  * An unobstructed route is required; this is not a gravitational trajectory solver.
  */
-export function evaluateGuideway(simulatedDays: number, arrivalAltitudeKm: number, draft: GuidewayDesign): GuidewayAssessment {
-  const baseline = createEarthMoonRoute(simulatedDays, arrivalAltitudeKm)
+export function evaluateGuideway(simulatedDays: number, arrivalAltitudeKm: number, draft: GuidewayDesign, sites?: RideSites): GuidewayAssessment {
+  const baseline = createEarthMoonRoute(simulatedDays, arrivalAltitudeKm, sites)
   const validated = validateGuidewayDesign(draft)
   if (!validated) return {
     route: baseline, nodes: [], valid: false, warnings: ['Invalid guideway layout. Reset the construction plan.'],
