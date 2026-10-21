@@ -59,6 +59,7 @@ export class WorldsApartApp {
       showOptions: () => this.showOptions(),
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
       toggleCamera: () => this.toggleCamera(),
+      turnAround: () => this.camera.turnAround(),
       nextSpeed: () => this.dispatch({ type: 'next-speed' }),
       seek: progress => this.dispatch({ type: 'seek', progress }),
       restart: () => this.dispatch({ type: 'restart' }),
@@ -89,6 +90,7 @@ export class WorldsApartApp {
       canInteract: () => this.state.begun && !this.planner.isOpen && !this.freight.isOpen,
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
       toggleCamera: () => this.toggleCamera(),
+      turnAround: () => this.camera.turnAround(),
       seekBy: delta => this.dispatch({ type: 'seek', progress: this.state.progress + delta }),
       look: (deltaX, deltaY) => this.camera.look(deltaX, deltaY),
       zoom: direction => this.camera.zoom(direction),
@@ -107,6 +109,7 @@ export class WorldsApartApp {
     window.removeEventListener('resize', this.resize)
     document.removeEventListener('visibilitychange', this.pauseWhenHidden)
     this.input.dispose()
+    this.hud.dispose()
     this.freight.dispose()
     this.planner.dispose()
     this.saveOperations()

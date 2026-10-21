@@ -278,6 +278,43 @@ async function runParallelFreight(browser) {
   await context.close()
 }
 
+async function runMobileCameraControls(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
+  await page.locator('#begin').click()
+  await page.locator('[data-plan-days="2"]').click()
+  await page.locator('#planner-launch').click()
+  await page.locator('#route-planner').waitFor({ state: 'hidden' })
+  const panel = page.locator('.left-panel')
+  const toggle = page.locator('#telemetry-toggle')
+  assert.equal(await toggle.getAttribute('aria-expanded'), 'false')
+  await toggle.click()
+  const initial = await panel.boundingBox()
+  const handle = await page.locator('#telemetry-handle').boundingBox()
+  assert.ok(initial && handle)
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handle.x + handle.width / 2 + 75, handle.y + handle.height / 2 - 70, { steps: 8 })
+  await page.mouse.up()
+  const dragged = await panel.boundingBox()
+  assert.ok(dragged && dragged.x > initial.x + 25)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  const restored = await page.locator('.left-panel').boundingBox()
+  assert.ok(restored && restored.x > initial.x + 25)
+  await page.locator('#begin').click()
+  await page.locator('[data-plan-days="2"]').click()
+  await page.locator('#planner-launch').click()
+  await page.locator('#route-planner').waitFor({ state: 'hidden' })
+  await page.locator('#look-back').click()
+  await page.locator('#camera').click()
+  await page.locator('#look-back').click()
+  assert.deepEqual(errors, [])
+  await context.close()
+}
+
 let browser
 try {
   await waitForServer()
@@ -289,6 +326,7 @@ try {
   await runLocalNetworkEditor(browser)
   await runParallelFreight(browser)
   await runDemolitionEditor(browser)
+  await runMobileCameraControls(browser)
   console.log('Browser smoke passed at desktop and mobile viewports.')
 } finally {
   await browser?.close()

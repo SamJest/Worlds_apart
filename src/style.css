@@ -173,3 +173,26 @@ button:focus-visible,input:focus-visible{outline:3px solid #b5f4ff;outline-offse
 .demolition-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; align-items: center; padding: .4rem 0; border-top: 1px solid rgba(159,196,212,.18); }
 .demolition-row span { font-size: .8rem; }
 .demolition-row button { min-height: 42px; }
+
+/* Mobile playtest: compact, draggable telemetry. */
+.left-panel { z-index:4; max-width:calc(100vw - 8px); }
+.telemetry-top { display:flex; align-items:center; justify-content:space-between; gap:5px; border-bottom:1px solid #6b8ca03a; }
+.left-panel .telemetry-handle { cursor:grab; flex:1; min-width:0; padding:11px 0 !important; border:0 !important; touch-action:none; user-select:none; -webkit-user-select:none; white-space:nowrap; }
+.telemetry-handle:active { cursor:grabbing; }
+.telemetry-handle:focus-visible, #telemetry-toggle:focus-visible { outline:2px solid #a2e6f1; outline-offset:2px; }
+#telemetry-toggle { flex:none; width:35px; height:35px; border-radius:6px; border:1px solid #7195ac77; background:#102a3bd9; color:#e3f5fa; font-size:19px; line-height:1; padding:0; }
+.left-panel.is-collapsed { width:176px; padding:4px 9px; }
+.left-panel.is-collapsed .telemetry-top { border-bottom:0; }
+.left-panel.is-collapsed .telemetry-readings { display:none; }
+.telemetry-readings { max-height:min(55vh, 405px); overflow-y:auto; scrollbar-width:thin; }
+@media (max-width:780px) {
+  .left-panel { left:12px; bottom:149px; width:190px; }
+  .left-panel.is-collapsed { width:167px; }
+  .controls { flex-wrap:wrap; gap:6px; }
+  .controls button { padding:9px 9px; }
+  .controls button span { font-size:8px; margin-left:3px; }
+}
+@media (max-width:420px) {
+  .controls button span { display:none; }
+  .controls button { flex:1; min-width:0; font-size:14px; }
+}
