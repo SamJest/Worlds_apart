@@ -155,7 +155,7 @@ async function runCreativeMobile(browser) {
   await page.locator('#cinematic-exit').click()
   assert.equal(await page.locator('.bottom').isVisible(), true)
 
-  // First person follows the track, starts facing Earth and uses explicit cardinal views.
+  // First person starts facing Earth, follows banking and supports full horizontal swipes.
   await page.locator('#play').click()
   const canvas = page.locator('#viewport canvas')
   const beforeLook = await canvas.screenshot()
@@ -168,13 +168,16 @@ async function runCreativeMobile(browser) {
   await page.waitForTimeout(80)
   const afterLook = await canvas.screenshot()
   assert.equal(beforeLook.equals(afterLook), false, 'forward/backward should visibly rotate first-person view')
+  const beforeSwipe = await canvas.screenshot()
   const canvasBox = await canvas.boundingBox()
   assert.ok(canvasBox)
-  // Horizontal first-person drag is deliberately locked; vertical drag remains free.
+  // First person allows horizontal and vertical rotation without locking to presets.
   await page.mouse.move(canvasBox.x + 300, canvasBox.y + 350)
   await page.mouse.down()
   await page.mouse.move(canvasBox.x + 80, canvasBox.y + 270, { steps: 10 })
   await page.mouse.up()
+  const afterSwipe = await canvas.screenshot()
+  assert.equal(beforeSwipe.equals(afterSwipe), false, 'first-person horizontal swipe must change the scene')
   await page.locator('#camera').click()
   assert.match(await page.locator('#camera').getAttribute('aria-label'), /first-person/)
   assert.match(await page.locator('#camera').textContent() || '', /FIRST PERSON/)

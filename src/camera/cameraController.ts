@@ -18,6 +18,7 @@ export class CameraController {
   private readonly config: GameConfig['camera']
   private modeValue: CameraMode = 'first-person'
   private facingValue: FacingDirection = 'backward'
+  private firstPersonYaw = Math.PI
   private orbitYaw = Math.PI
   private pitch = 0
   private orbitDistance: number
@@ -47,21 +48,37 @@ export class CameraController {
 
   look(deltaX: number, deltaY: number) {
     if (this.modeValue === 'external') this.orbitYaw = wrapYaw(this.orbitYaw - deltaX * this.config.pointerSensitivity)
+    else {
+      this.firstPersonYaw = wrapYaw(this.firstPersonYaw - deltaX * this.config.pointerSensitivity)
+      this.refreshFacingLabel()
+    }
     this.pitch = THREE.MathUtils.clamp(this.pitch + deltaY * this.config.pitchSensitivity, -this.config.maximumPitchRadians, this.config.maximumPitchRadians)
   }
 
   setFacing(direction: FacingDirection) {
     this.facingValue = direction
+    this.firstPersonYaw = FACING_YAW[direction]
     this.snapNextCamera = true
   }
 
   turnAround() {
-    if (this.modeValue === 'first-person') this.setFacing(this.facingValue === 'backward' ? 'forward' : 'backward')
+    if (this.modeValue === 'first-person') {
+      this.firstPersonYaw = wrapYaw(this.firstPersonYaw + Math.PI)
+      this.refreshFacingLabel()
+      this.snapNextCamera = true
+    }
     else { this.orbitYaw = wrapYaw(this.orbitYaw + Math.PI); this.snapNextCamera = true }
+  }
+
+  private refreshFacingLabel() {
+    const quadrants: FacingDirection[] = ['forward', 'right', 'backward', 'left']
+    const heading = (this.firstPersonYaw + 2 * Math.PI) % (2 * Math.PI)
+    this.facingValue = quadrants[Math.round(heading / (Math.PI / 2)) % 4]
   }
 
   beginRide() {
     this.facingValue = 'backward'
+    this.firstPersonYaw = Math.PI
     this.orbitYaw = Math.PI
     this.pitch = 0
     this.snapNextCamera = true
@@ -72,7 +89,9 @@ export class CameraController {
   }
 
   apply(point: THREE.Vector3, tangent: THREE.Vector3, moonPosition: THREE.Vector3, elapsedSeconds = 1 / 60, reducedMotion = false, rideUp?: THREE.Vector3) {
-    const initialUp = this.modeValue === 'first-person' && rideUp ? rideUp : this.up
+    // BOTH camera modes inherit rail cant. External chase view must rotate
+    // with the vehicle instead of artificially levelling to the horizon.
+    const initialUp = rideUp ?? this.up
     this.viewUp.copy(initialUp).addScaledVector(tangent, -initialUp.dot(tangent))
     if (this.viewUp.lengthSq() < 0.0001) this.viewUp.set(0, 0, 1).addScaledVector(tangent, -tangent.z)
     this.viewUp.normalize()
@@ -98,7 +117,7 @@ export class CameraController {
     this.desired.copy(point).addScaledVector(tangent, this.config.firstPersonForwardWorldUnits)
       .addScaledVector(this.viewUp, this.config.firstPersonHeightWorldUnits)
     this.camera.position.copy(this.desired)
-    const facingYaw = FACING_YAW[this.facingValue]
+    const facingYaw = this.firstPersonYaw
     this.direction.copy(tangent).multiplyScalar(Math.cos(facingYaw))
       .addScaledVector(this.side, Math.sin(facingYaw))
       .multiplyScalar(Math.cos(this.pitch))

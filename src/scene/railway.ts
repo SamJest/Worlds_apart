@@ -21,7 +21,7 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   const side = new THREE.Vector3()
   const trackUp = new THREE.Vector3()
   const point = new THREE.Vector3()
-  const orientation = new TrackOrientation(route.curve, railConfig.curveSamples)
+  const orientation = new TrackOrientation(route.curve, railConfig.curveSamples, route.rideProfile)
   for (let index = 0; index <= railConfig.curveSamples; index++) {
     const progress = index / railConfig.curveSamples
     route.curve.getPoint(progress, point)

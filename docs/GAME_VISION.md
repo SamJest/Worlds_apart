@@ -14,7 +14,7 @@ The railway is fictional adaptive technology. Surrounding scale, apparent body s
 - Players can look back at Earth, forward to the Moon and sideways into space, with enough rail and carriage structure to communicate movement.
 - Fiction has consistent rules; the adaptive rail can change visual gauge and follow an impossible route, but is never described as a viable orbital transfer.
 - Fast testing coexists with scenic travel through 1×, 4× and 16× speeds and seeking.
-- Desktop is an immersive experience while track-following first person with four clear facing directions, 360° third-person orbit and a movable compact HUD make modern phones a first-class playtest target.
+- Desktop is an immersive experience while track-following first person with free look and four direction shortcuts, 360° third-person orbit and a movable compact HUD make modern phones a first-class playtest target. Both views inherit the rails' full axial roll.
 
 ## Scientific boundary
 

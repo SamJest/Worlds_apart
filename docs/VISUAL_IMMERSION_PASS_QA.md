@@ -19,14 +19,14 @@ The original `InputController.pointerMove` applied `event.clientX - lastX` but n
 - Dark lunar maria and subtle height shading using the existing Moon texture.
 - Near-track instanced luminous guideway hoops with distant perspective and visual cadence. Fictional materials, not physically real construction.
 - Richer rail surface lighting and a transparent carriage canopy, leaving the rear view clear.
-- Mild banking into turns (max 20.6°), with camera roll following the carriage in first person. Reduced-motion disables banking and twinkle.
+- Explicit template roll plus mild banking into turns, with rails, carriage and both cameras sharing one orientation frame. Reduced-motion affects camera easing and decorative animation, not physical track geometry.
 - One-tap cinematic mode on mobile with a persistent **Show Controls** exit button.
 - Battery saver reduces visible stars, disables the rich sky and sun halo, and reduces illuminated guideway hoops.
 
 ## Browser acceptance (Codex must execute before merge/deployment)
 
 1. `npm ci && npm run check` using the full GitHub repository with package-lock and installed dependencies. The ChatGPT context export intentionally omits package-lock and node_modules.
-2. Test a narrow mobile viewport (390×844) and actual Android Chrome with touch: select all four first-person facings, drag vertically, then switch to Third Person and orbit through 360° using repeated one-finger swipes. A new ride should initially face the departing Earth.
+2. Test a narrow mobile viewport (390×844) and actual Android Chrome with touch: select all four first-person facings, swipe freely through 360°, then switch to Third Person and orbit through 360° using repeated one-finger swipes. A new ride should initially face the departing Earth, and both views should roll with the track.
 3. Confirm pointer gestures move incrementally and do not jump back, drift after release or react to second-finger movement.
 4. Test Direct, Corkscrew, Zero-G Waves and Deep-Space Dive. Check roll, motion comfort and planet clearance. Verify 1×, 4×, 16×, seek and restart. Moon remains visible naturally at physically scaled angular size.
 5. Check Earth cloud transparency and atmosphere rim from a distance, Moon surface from 80–100%, and sun halo. Inspect the GLSL shader console for compilation/linking errors on WebGL.

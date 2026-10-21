@@ -3,7 +3,7 @@
 ### Current playable baseline
 
 - Free Earth-to-Moon creative building with seven distinct templates, optional anchor editing, saved blueprints and immediate repeat rides.
-- Track-following first person with Front/Left/Back/Right views and vertical look, plus 360° third-person orbit, telemetry, speed/seek/pause, audio, desktop and mobile layouts.
+- Track-following first person with free look and Front/Left/Back/Right shortcuts, plus 360° third-person orbit, telemetry, speed/seek/pause, audio, desktop and mobile layouts. Both cameras inherit the same explicit rail/carriage roll frame.
 - Astronomical scale and apparent body sizes remain grounded while the coaster technology and accelerated journey are explicit fiction.
 - The earlier freight economy and local railway network are dormant, not deleted; they are no longer part of normal gameplay.
 

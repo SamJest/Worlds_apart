@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { rotatedSiteDirection, type RideSites } from './surfaceSites.ts'
+import type { RideProfile } from './constructionPlan.ts'
 
 import { KILOMETRES_PER_WORLD_UNIT, EARTH_RADIUS_KM, MOON_RADIUS_KM, EARTH_MOON_MEAN_DISTANCE_KM, LUNAR_ORBIT_DAYS } from './astroConstants.ts'
 export { KILOMETRES_PER_WORLD_UNIT, EARTH_RADIUS_KM, MOON_RADIUS_KM, EARTH_MOON_MEAN_DISTANCE_KM, LUNAR_ORBIT_DAYS } from './astroConstants.ts'
@@ -18,6 +19,7 @@ export interface EarthMoonRoute {
   readonly lengthKm: number
   readonly constructionAnchors?: readonly THREE.Vector3[]
   readonly sites?: RideSites
+  readonly rideProfile?: RideProfile
 }
 
 export function moonPosition(progress: number, simulatedDays: number): THREE.Vector3 {

@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { RideProfile } from '../simulation/constructionPlan.ts'
+import { designedTrackRoll, turnBankRadians } from '../simulation/trackRoll.ts'
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0)
 const LOCAL_SIDE = new THREE.Vector3(1, 0, 0)
@@ -15,7 +17,7 @@ export class TrackOrientation {
   private readonly segments: number
   private readonly sample = new THREE.Quaternion()
 
-  constructor(curve: THREE.Curve<THREE.Vector3>, segments = 720) {
+  constructor(curve: THREE.Curve<THREE.Vector3>, segments = 720, profile: RideProfile = 'classic') {
     this.segments = Math.max(16, Math.round(segments))
     this.frames = []
     const previousTangent = curve.getTangent(0).normalize()
@@ -27,6 +29,10 @@ export class TrackOrientation {
     up.crossVectors(tangent, side).normalize()
     this.frames.push(frameQuaternion(side, up, tangent))
 
+    const bankedUp = new THREE.Vector3()
+    const bankedSide = new THREE.Vector3()
+    const bankQuaternion = new THREE.Quaternion()
+    const nextTangent = new THREE.Vector3()
     const axis = new THREE.Vector3()
     for (let index = 1; index <= this.segments; index++) {
       curve.getTangent(index / this.segments, tangent).normalize()
@@ -40,7 +46,16 @@ export class TrackOrientation {
       up.normalize()
       side.crossVectors(up, tangent).normalize()
       up.crossVectors(tangent, side).normalize()
-      this.frames.push(frameQuaternion(side, up, tangent))
+      // First compute the minimally-rotating frame. Then roll the entire rail
+      // cross-section about the actual track tangent; do NOT feed rolled axes
+      // back into the parallel-transport integrator on the next sample.
+      const u = index / this.segments
+      curve.getTangent(Math.min(1, u + 0.012), nextTangent).normalize()
+      const turnRoll = turnBankRadians(nextTangent.dot(side), u)
+      bankQuaternion.setFromAxisAngle(tangent, designedTrackRoll(u, profile) + turnRoll)
+      bankedUp.copy(up).applyQuaternion(bankQuaternion)
+      bankedSide.copy(side).applyQuaternion(bankQuaternion)
+      this.frames.push(frameQuaternion(bankedSide, bankedUp, tangent))
       previousTangent.copy(tangent)
     }
   }

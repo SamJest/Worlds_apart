@@ -11,7 +11,7 @@ const nearVector = (actual, expected, tolerance = 1e-5) => {
   assert.ok(actual.distanceTo(expected) < tolerance, `${actual.toArray()} vs ${expected.toArray()}`)
 }
 
-test('first-person starts backward and discrete facings inherit track direction', () => {
+test('first-person starts backward, presets and drag remain local to the twisting track', () => {
   const camera = new THREE.PerspectiveCamera()
   const controller = new CameraController(camera, defaultGameConfig.camera)
   const point = new THREE.Vector3(4, 5, 6)
@@ -27,12 +27,13 @@ test('first-person starts backward and discrete facings inherit track direction'
   controller.setFacing('right')
   controller.apply(point, new THREE.Vector3(0, 0, 1), moon, 1 / 60, false, up)
   nearVector(camera.getWorldDirection(direction), new THREE.Vector3(1, 0, 0))
-  controller.look(500, 0)
+  controller.setFacing('forward')
+  controller.look(-Math.PI / 2 / defaultGameConfig.camera.pointerSensitivity, 0)
   controller.apply(point, new THREE.Vector3(1, 0, 0), moon, 1 / 60, false, up)
   nearVector(camera.getWorldDirection(direction), new THREE.Vector3(0, 0, -1))
 })
 
-test('third-person retains 360 orbit while first-person horizontal drag is locked', () => {
+test('both cameras allow 360 orbit and first-person horizontal drag changes heading', () => {
   const camera = new THREE.PerspectiveCamera()
   const controller = new CameraController(camera, defaultGameConfig.camera)
   const point = new THREE.Vector3(10, 4, 3)
@@ -42,7 +43,7 @@ test('third-person retains 360 orbit while first-person horizontal drag is locke
   const firstDirection = camera.getWorldDirection(new THREE.Vector3())
   controller.look(800, 0)
   controller.apply(point, tangent, moon)
-  nearVector(camera.getWorldDirection(new THREE.Vector3()), firstDirection)
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).distanceTo(firstDirection) > 0.1, 'first-person swipe must rotate heading')
 
   controller.toggleMode()
   controller.apply(point, tangent, moon, 1 / 60, true)
@@ -54,7 +55,7 @@ test('third-person retains 360 orbit while first-person horizontal drag is locke
 
 test('transported track frame follows a corkscrew smoothly without horizon resets', () => {
   const route = evaluateGuideway(4, 25, applyGuidewayPreset('corkscrew')).route
-  const orientation = new TrackOrientation(route.curve, 720)
+  const orientation = new TrackOrientation(route.curve, 720, route.rideProfile)
   const tangent = new THREE.Vector3(), up = new THREE.Vector3(), side = new THREE.Vector3()
   const previousUp = new THREE.Vector3()
   let maximumUpChange = 0
@@ -73,4 +74,58 @@ test('transported track frame follows a corkscrew smoothly without horizon reset
     previousUp.copy(up)
   }
   assert.ok(maximumUpChange > 0.001, 'corkscrew orientation should turn with the track')
+})
+
+test('first- and third-person camera up follows the actual banked rail frame', () => {
+  const camera = new THREE.PerspectiveCamera()
+  const controller = new CameraController(camera, defaultGameConfig.camera)
+  const moon = new THREE.Vector3(380, 0, 0)
+  const point = new THREE.Vector3(20, 0, 0)
+  const tangent = new THREE.Vector3(0, 0, 1)
+  const rightSideUp = new THREE.Vector3(0, -1, 0)
+  controller.beginRide()
+  controller.apply(point, tangent, moon, 1/60, true, rightSideUp)
+  const actualFirst = camera.up.clone().normalize()
+  nearVector(actualFirst, rightSideUp)
+  controller.toggleMode()
+  controller.apply(point, tangent, moon, 1/60, true, rightSideUp)
+  nearVector(camera.up.clone().normalize(), rightSideUp)
+})
+
+test('corkscrew rail and carriage frames share identical bank around the tangent', () => {
+  const route = evaluateGuideway(4, 25, applyGuidewayPreset('corkscrew')).route
+  const carriage = new TrackOrientation(route.curve, defaultGameConfig.scene.rail.curveSamples, route.rideProfile)
+  const railway = new TrackOrientation(route.curve, defaultGameConfig.scene.rail.curveSamples, route.rideProfile)
+  const neutralRail = new TrackOrientation(route.curve, defaultGameConfig.scene.rail.curveSamples)
+  const tangent = new THREE.Vector3(), up = new THREE.Vector3(), side = new THREE.Vector3()
+  let hasInverted = false
+  for (let i = 0; i <= 100; i++) {
+    const t = i/100
+    carriage.frameAt(t, tangent, up, side)
+    const railUp = new THREE.Vector3(0, 1, 0).applyQuaternion(railway.quaternionAt(t, new THREE.Quaternion()))
+    nearVector(railUp, up)
+    const neutral = neutralRail.quaternionAt(t, new THREE.Quaternion())
+    const neutralUp = new THREE.Vector3(0, 1, 0).applyQuaternion(neutral)
+    if (up.dot(neutralUp) < -0.7) hasInverted = true
+  }
+  assert.equal(hasInverted, true, 'corkscrew should invert the carriage relative to an untwisted rail')
+})
+
+test('360° first-person swipes preserve travel frame and can look back at Earth', () => {
+  const camera = new THREE.PerspectiveCamera()
+  const controller = new CameraController(camera, defaultGameConfig.camera)
+  const tangent = new THREE.Vector3(0, 0, 1)
+  const up = new THREE.Vector3(0, 1, 0)
+  const point = new THREE.Vector3(40, 0, 0)
+  const moon = new THREE.Vector3(385, 0, 0)
+  controller.beginRide()
+  controller.apply(point, tangent, moon, 1 / 60, false, up)
+  nearVector(camera.getWorldDirection(new THREE.Vector3()), new THREE.Vector3(0, 0, -1))
+  const halfTurnPixels = Math.PI / defaultGameConfig.camera.pointerSensitivity
+  controller.look(-halfTurnPixels, 0)
+  controller.apply(point, tangent, moon, 1 / 60, false, up)
+  nearVector(camera.getWorldDirection(new THREE.Vector3()), tangent)
+  controller.look(-halfTurnPixels, 0)
+  controller.apply(point, tangent, moon, 1 / 60, false, up)
+  nearVector(camera.getWorldDirection(new THREE.Vector3()), new THREE.Vector3(0, 0, -1))
 })

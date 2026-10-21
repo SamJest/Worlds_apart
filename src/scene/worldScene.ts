@@ -11,7 +11,6 @@ import { createFreightInfrastructure } from './freightInfrastructure.ts'
 import type { FreightState } from '../simulation/freightEconomy.ts'
 import type { FleetState } from '../simulation/fleetOperations.ts'
 import type { LocalRailNetwork } from '../simulation/localRailNetwork.ts'
-import { coasterBankRadians } from '../simulation/rideFeel.ts'
 import { TrackOrientation } from './trackOrientation.ts'
 
 export interface Telemetry {
@@ -38,9 +37,6 @@ export class WorldScene {
   private readonly tangent = new THREE.Vector3()
   private readonly frameUp = new THREE.Vector3()
   private readonly frameSide = new THREE.Vector3()
-  private readonly aheadTangent = new THREE.Vector3()
-  private readonly frameMatrix = new THREE.Matrix4()
-  private readonly frameBank = new THREE.Quaternion()
   private trackOrientation: TrackOrientation
   private quality: QualityPreset = 'auto'
 
@@ -50,7 +46,7 @@ export class WorldScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = config.renderer.toneMappingExposure
     this.camera = new THREE.PerspectiveCamera(config.camera.fieldOfViewDegrees, 1, config.camera.nearWorldUnits, config.camera.farWorldUnits)
-    this.trackOrientation = new TrackOrientation(route.curve)
+    this.trackOrientation = new TrackOrientation(route.curve, config.scene.rail.curveSamples, route.rideProfile)
     this.scene.background = new THREE.Color(0x020611)
     this.environment = createEnvironment(config)
     this.bodies = createCelestialBodies(this.renderer, config)
@@ -70,15 +66,10 @@ export class WorldScene {
     this.route.curve.getPoint(routeT, this.point)
     this.trackOrientation.frameAt(routeT, this.tangent, this.frameUp, this.frameSide)
     this.carriage.group.position.copy(this.point)
-    // Rails, carriage and first-person camera share the same transported frame;
-    // banking is applied on top rather than stabilising back to the world horizon.
-    this.route.curve.getTangent(Math.min(1, routeT + 0.002), this.aheadTangent).normalize()
-    const bank = coasterBankRadians(this.aheadTangent.dot(this.frameSide), reducedMotion)
-    this.frameBank.setFromAxisAngle(this.tangent, bank)
-    this.frameUp.applyQuaternion(this.frameBank)
-    this.frameSide.crossVectors(this.frameUp, this.tangent).normalize()
-    this.frameMatrix.makeBasis(this.frameSide, this.frameUp, this.tangent)
-    this.carriage.group.quaternion.setFromRotationMatrix(this.frameMatrix)
+    // This is precisely the same frame used to construct the physical rail
+    // cross-section and sleepers, including barrel rolls. No extra world-up
+    // correction or unrelated carriage-only banking is permitted here.
+    this.trackOrientation.quaternionAt(routeT, this.carriage.group.quaternion)
     this.bodies.update(progress, this.route.simulatedDays)
     this.railway.update(progress, reducedMotion)
     if (freight && network) this.freightInfrastructure.update(freight, network, fleet)
@@ -101,7 +92,7 @@ export class WorldScene {
     this.scene.remove(this.railway.group)
     this.railway.dispose()
     this.route = route
-    this.trackOrientation = new TrackOrientation(route.curve)
+    this.trackOrientation = new TrackOrientation(route.curve, this.config.scene.rail.curveSamples, route.rideProfile)
     this.bodies.setSites(route.sites)
     this.railway = createRailway(route, this.config)
     this.scene.add(this.railway.group)

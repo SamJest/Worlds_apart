@@ -50,7 +50,7 @@ export function evaluateGuideway(simulatedDays: number, arrivalAltitudeKm: numbe
   const curve: THREE.Curve<THREE.Vector3> = profile === 'classic' ? anchorCurve : new ScenicRouteCurve(anchorCurve, profile)
   curve.arcLengthDivisions = 512
   const lengthKm = curve.getLength() * KILOMETRES_PER_WORLD_UNIT
-  const route: EarthMoonRoute = { ...baseline, curve, lengthKm, constructionAnchors: nodes }
+  const route: EarthMoonRoute = { ...baseline, curve, lengthKm, constructionAnchors: nodes, rideProfile: profile }
   const warnings: string[] = []
   // Constraint is a game-design construction allowance, not a monetary/material economy.
   // Creative mode has no spending or length allowance.
