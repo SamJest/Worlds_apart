@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { EARTH_RADIUS } from '../simulation/astronomy.ts'
 import { initialLocalNetwork, shortestRailPath, stationById, type LocalRailNetwork, type LocalStation } from '../simulation/localRailNetwork.ts'
 import type { FreightState } from '../simulation/freightEconomy.ts'
+import { EXTRA_TRAIN_IDS, type FleetState, type FleetShipment } from '../simulation/fleetOperations.ts'
 
 /** Visual mapping of the user-built local schematic. This is deliberately an exaggerated
  * Earth-orbit construction zone, not a claim of geostationary orbital dynamics. */
@@ -20,7 +21,9 @@ export function createFreightInfrastructure() {
   const platform = new THREE.MeshStandardMaterial({ color: 0x77d4c2, metalness: .55, roughness: .4 })
   const cargo = new THREE.MeshStandardMaterial({ color: 0xe9c27d, metalness: .25, roughness: .35 })
   const light = new THREE.MeshBasicMaterial({ color: 0xaaf3e7 })
-  const materials = [metal, base, platform, cargo, light]
+  const trainBMaterial = new THREE.MeshStandardMaterial({ color: 0x9e91e6, metalness: .5, roughness: .35 })
+  const trainCMaterial = new THREE.MeshStandardMaterial({ color: 0xe89c7b, metalness: .5, roughness: .35 })
+  const materials = [metal, base, platform, cargo, light, trainBMaterial, trainCMaterial]
   const stationRingGeometry = new THREE.TorusGeometry(.019, .0038, 7, 18)
   const stationBaseGeometry = new THREE.CylinderGeometry(.014, .019, .013, 10)
   const beaconGeometry = new THREE.SphereGeometry(.006, 10, 8)
@@ -35,6 +38,16 @@ export function createFreightInfrastructure() {
   crate.position.y = .011
   carriage.add(crate)
   group.add(carriage)
+  const extraCarriages = EXTRA_TRAIN_IDS.map((id, i) => {
+    const train = new THREE.Group()
+    train.add(new THREE.Mesh(carriageGeometry, i === 0 ? trainBMaterial : trainCMaterial))
+    const crate = new THREE.Mesh(cargoGeometry, cargo)
+    crate.position.y = .011
+    train.add(crate)
+    train.visible = false
+    group.add(train)
+    return { id, train }
+  })
   const vectorX = new THREE.Vector3(1, 0, 0)
   const pointA = new THREE.Vector3(), pointB = new THREE.Vector3()
   let signature = ''
@@ -82,7 +95,25 @@ export function createFreightInfrastructure() {
     }
   }
 
-  const update = (freight: FreightState, network: LocalRailNetwork = initialLocalNetwork()) => {
+  /** Calculates a vehicle position on its purchased rail sequence without extrapolating.
+   * This also handles paths with two or more intermediate junctions. */
+  const positionOnPath = (stops: readonly string[], length: number, fraction: number, target: THREE.Group) => {
+    let remaining = length * THREE.MathUtils.clamp(fraction, 0, 1)
+    for (let i = 1; i < stops.length; i++) {
+      const a = stationById(activeNetwork, stops[i - 1])!, b = stationById(activeNetwork, stops[i])!
+      const segment = Math.hypot(b.x - a.x, b.y - a.y)
+      const alpha = Math.min(1, remaining / segment)
+      pointA.copy(localStationWorldPosition(a))
+      pointB.copy(localStationWorldPosition(b))
+      target.position.copy(pointA).lerp(pointB, alpha)
+      target.quaternion.setFromUnitVectors(vectorX, pointB.sub(pointA).normalize())
+      remaining = Math.max(0, remaining - segment)
+      if (remaining < 1e-5) break
+    }
+  }
+  let activeNetwork = initialLocalNetwork()
+  const update = (freight: FreightState, network: LocalRailNetwork = initialLocalNetwork(), fleet?: FleetState) => {
+    activeNetwork = network
     const currentSignature = network.stations.map(s => `${s.id},${s.x},${s.y}`).join('|')
       + '/' + network.links.map(l => `${l.a}:${l.b}`).join('|')
     if (currentSignature !== signature) { signature = currentSignature; rebuild(network) }
@@ -91,23 +122,15 @@ export function createFreightInfrastructure() {
     if (!path) {
       carriage.position.copy(localStationWorldPosition(network.stations[0]))
       carriage.quaternion.identity()
-      return
-    }
-    let remaining = path.length * fraction
-    for (let i = 1; i < path.stops.length; i++) {
-      const a = stationById(network, path.stops[i - 1])!, b = stationById(network, path.stops[i])!
-      const length = Math.hypot(b.x - a.x, b.y - a.y)
-      const alpha = Math.min(1, remaining / length)
-      pointA.copy(localStationWorldPosition(a))
-      pointB.copy(localStationWorldPosition(b))
-      carriage.position.copy(pointA).lerp(pointB, alpha)
-      carriage.quaternion.setFromUnitVectors(vectorX, pointB.sub(pointA).normalize())
-      remaining = Math.max(0, remaining - length)
-      if (remaining < 1e-5) break
+    } else positionOnPath(path.stops, path.length, fraction, carriage)
+    for (const { id, train } of extraCarriages) {
+      const job: FleetShipment | null = fleet?.jobs[id] ?? null
+      train.visible = job !== null
+      if (job) positionOnPath(job.path, job.length, 1 - job.secondsRemaining / job.totalSeconds, train)
     }
   }
   const dispose = () => {
-    networkGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) object.dispose() })
+    networkGroup.traverse((object: THREE.Object3D) => { if (object instanceof THREE.InstancedMesh) object.dispose() })
     for (const geometry of dynamicGeometries) geometry.dispose()
     for (const geometry of sharedGeometries) geometry.dispose()
     for (const material of materials) material.dispose()

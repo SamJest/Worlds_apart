@@ -1,7 +1,9 @@
 import { AudioEngine } from '../audio/audioEngine.ts'
-import { addLink, addStation, advanceNetworkProduction, beginNetworkShipment, completeNetworkShipment, linkCost, readLocalNetwork, saveLocalNetwork, selectDestination, shortestRailPath, stationById, STATION_PRICE, type LocalRailNetwork } from '../simulation/localRailNetwork.ts'
+import { addLink, addStation, advanceNetworkProduction, beginNetworkShipment, completeNetworkShipment, linkCost, removeLink, removeStation, selectDestination, shortestRailPath, stationById, STATION_PRICE, type LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 import { FreightOperationsUi } from '../ui/freightOperationsUi.ts'
-import { advanceFreight, buildRoute, dispatchFreight, FREIGHT_TIERS, MATERIAL_LIMIT, quoteRoute, readFreightState, routeOwnershipId, saveFreightState, upgradeFreightYard, type FreightState } from '../simulation/freightEconomy.ts'
+import { advanceFreight, buildRoute, dispatchFreight, FREIGHT_TIERS, MATERIAL_LIMIT, quoteRoute, routeOwnershipId, upgradeFreightYard, type FreightState } from '../simulation/freightEconomy.ts'
+import { advanceExtraTrains, dispatchExtraTrain, manufactureComponents, unlockNextTrain, type ExtraTrainId, type CargoKind, type FleetState, type OperationsState } from '../simulation/fleetOperations.ts'
+import { readOperationsState, saveOperationsState } from '../simulation/operationsSave.ts'
 import { RoutePlannerUi } from '../ui/routePlannerUi.ts'
 import { missionPhaseAt } from '../simulation/missionPhases.ts'
 import { CameraController } from '../camera/cameraController.ts'
@@ -21,8 +23,10 @@ export class WorldsApartApp {
   private route
   private readonly planner: RoutePlannerUi
   private readonly freight: FreightOperationsUi
-  private freightState: FreightState = readFreightState()
-  private localNetwork: LocalRailNetwork = readLocalNetwork()
+  private readonly initialOperations = readOperationsState()
+  private freightState: FreightState = this.initialOperations.freight
+  private localNetwork: LocalRailNetwork = this.initialOperations.network
+  private fleetState: FleetState = this.initialOperations.fleet
   private freightRenderElapsed = 0
   private freightSaveElapsed = 0
   private networkSaveElapsed = 0
@@ -43,7 +47,7 @@ export class WorldsApartApp {
     // network path out of sync. A completed shipment is never kept permanently active.
     if (!this.freightState.shipment && this.localNetwork.activePath) {
       this.localNetwork = completeNetworkShipment(this.localNetwork)
-      saveLocalNetwork(this.localNetwork)
+      this.saveOperations()
     }
     this.route = createEarthMoonRoute(config.journey.simulatedDays, config.journey.arrivalAltitudeKm)
     this.state = createInitialJourneyState(config.journey)
@@ -70,6 +74,11 @@ export class WorldsApartApp {
       placeStation: (x, y) => this.placeLocalStation(x, y),
       connectStations: (a, b) => this.connectLocalStations(a, b),
       chooseDestination: id => this.changeNetwork(selectDestination(this.localNetwork, id)),
+      buyTrain: () => this.buyTrain(),
+      manufacture: () => this.manufacture(),
+      dispatchExtra: (train, kind, destination) => this.dispatchExtra(train, kind, destination),
+      removeLink: (a, b) => this.demolishLocalLink(a, b),
+      removeStation: id => this.demolishLocalStation(id),
       close: returnToPlanner => { if (returnToPlanner) this.planner.open() },
     })
     this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment?.secondsRemaining ?? null)
@@ -100,8 +109,7 @@ export class WorldsApartApp {
     this.input.dispose()
     this.freight.dispose()
     this.planner.dispose()
-    saveFreightState(this.freightState)
-    saveLocalNetwork(this.localNetwork)
+    this.saveOperations()
     this.audio.dispose()
     this.diagnostics.dispose()
     this.world.dispose()
@@ -141,23 +149,47 @@ export class WorldsApartApp {
     const freight = dispatchFreight(this.freightState, { cargo, routeLength: route.length })
     const network = beginNetworkShipment(this.localNetwork, route, cargo)
     if (freight === this.freightState || !network) return
-    this.changeFreight(freight)
-    this.changeNetwork(network)
+    this.applyOperations({ freight, network, fleet: this.fleetState })
+  }
+
+  private saveOperations() {
+    saveOperationsState({ freight: this.freightState, network: this.localNetwork, fleet: this.fleetState })
+  }
+
+  private applyOperations(state: OperationsState) {
+    this.freightState = state.freight
+    this.localNetwork = state.network
+    this.fleetState = state.fleet
+    this.freightSaveElapsed = 0
+    this.saveOperations()
+    this.freight.render(this.freightState, this.localNetwork, this.fleetState)
+    this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment?.secondsRemaining ?? null)
   }
 
   private changeNetwork(network: LocalRailNetwork) {
-    if (network === this.localNetwork) return
-    this.localNetwork = network
-    saveLocalNetwork(network)
-    this.freight.render(this.freightState, network)
+    if (network !== this.localNetwork) this.applyOperations({ freight: this.freightState, network, fleet: this.fleetState })
+  }
+
+  private buyTrain() {
+    const result = unlockNextTrain(this.fleetState, this.freightState)
+    if (result) this.applyOperations({ ...result, network: this.localNetwork })
+  }
+
+  private manufacture() {
+    const result = manufactureComponents(this.fleetState, this.freightState)
+    if (result) this.applyOperations({ ...result, network: this.localNetwork })
+  }
+
+  private dispatchExtra(train: ExtraTrainId, kind: CargoKind, destination: string) {
+    const state = dispatchExtraTrain({ freight: this.freightState, network: this.localNetwork, fleet: this.fleetState }, train, kind, destination)
+    if (state) this.applyOperations(state)
   }
 
   private placeLocalStation(x: number, y: number): boolean {
     if (this.freightState.materials < STATION_PRICE) return false
     const changed = addStation(this.localNetwork, x, y)
     if (!changed) return false
-    this.changeFreight({ ...this.freightState, materials: this.freightState.materials - STATION_PRICE })
-    this.changeNetwork(changed)
+    this.applyOperations({ freight: { ...this.freightState, materials: this.freightState.materials - STATION_PRICE }, network: changed, fleet: this.fleetState })
     return true
   }
 
@@ -167,24 +199,40 @@ export class WorldsApartApp {
     const updated = addLink(this.localNetwork, a, b)
     const price = linkCost(left, right)
     if (!updated || this.freightState.materials < price) return false
-    this.changeFreight({ ...this.freightState, materials: this.freightState.materials - price })
-    this.changeNetwork(updated)
+    this.applyOperations({ freight: { ...this.freightState, materials: this.freightState.materials - price }, network: updated, fleet: this.fleetState })
+    return true
+  }
+
+  private demolishLocalLink(a: string, b: string): boolean {
+    const left = stationById(this.localNetwork, a), right = stationById(this.localNetwork, b)
+    if (!left || !right) return false
+    const paths = [this.fleetState.jobs.b?.path, this.fleetState.jobs.c?.path]
+      .filter((path): path is readonly string[] => !!path)
+    const updated = removeLink(this.localNetwork, a, b, paths)
+    if (!updated) return false
+    const salvage = Math.floor(linkCost(left, right) / 2)
+    this.applyOperations({ freight: { ...this.freightState, materials: Math.min(MATERIAL_LIMIT, this.freightState.materials + salvage) },
+      network: updated, fleet: this.fleetState })
+    return true
+  }
+
+  private demolishLocalStation(id: string): boolean {
+    const updated = removeStation(this.localNetwork, id)
+    if (!updated) return false
+    this.applyOperations({ freight: { ...this.freightState, materials: Math.min(MATERIAL_LIMIT, this.freightState.materials + Math.floor(STATION_PRICE / 2)) },
+      network: updated, fleet: this.fleetState })
     return true
   }
 
   private changeFreight(updated: FreightState) {
     if (updated === this.freightState) return
-    this.freightState = updated
-    this.freightSaveElapsed = 0
-    saveFreightState(updated)
-    this.freight.render(updated, this.localNetwork)
-    this.hud.setFreightStats(updated.materials, updated.shipment?.secondsRemaining ?? null)
+    this.applyOperations({ freight: updated, network: this.localNetwork, fleet: this.fleetState })
   }
 
   private openFreight(returnToPlanner = false) {
     if (this.freight.isOpen) return
     this.dispatch({ type: 'pause' })
-    this.freight.open(this.freightState, this.localNetwork, returnToPlanner)
+    this.freight.open(this.freightState, this.localNetwork, this.fleetState, returnToPlanner)
   }
 
   private replan() {
@@ -212,7 +260,7 @@ export class WorldsApartApp {
 
   private readonly pauseWhenHidden = () => {
     this.previousTimestamp = undefined
-    if (document.hidden) { this.dispatch({ type: 'pause' }); saveFreightState(this.freightState); saveLocalNetwork(this.localNetwork) }
+    if (document.hidden) { this.dispatch({ type: 'pause' }); this.saveOperations() }
   }
 
   private readonly resize = () => this.world.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
@@ -223,42 +271,36 @@ export class WorldsApartApp {
     this.previousTimestamp = timestamp
     this.dispatch({ type: 'advance', elapsedSeconds: elapsed })
     if (!document.hidden) {
-      const produced = advanceNetworkProduction(this.localNetwork, Math.min(rawElapsed, 1))
-      if (produced !== this.localNetwork) {
-        this.localNetwork = produced
-        this.networkSaveElapsed += Math.min(rawElapsed, 1)
-        if (this.networkSaveElapsed >= 1) {
-          this.networkSaveElapsed = 0
-          saveLocalNetwork(this.localNetwork)
-        }
-      }
-    }
-    if (!document.hidden && this.freightState.shipment) {
-      const previous = this.freightState
       const freightElapsed = Math.min(rawElapsed, 1)
-      this.freightState = advanceFreight(previous, freightElapsed)
-      if (!this.freightState.shipment && previous.shipment) {
-        this.localNetwork = completeNetworkShipment(this.localNetwork)
-        this.freightSaveElapsed = 0
-        saveFreightState(this.freightState)
-        saveLocalNetwork(this.localNetwork)
-        this.hud.setFreightStats(this.freightState.materials, null)
-      } else {
+      const produced = advanceNetworkProduction(this.localNetwork, freightElapsed)
+      let freight = advanceFreight(this.freightState, freightElapsed)
+      let network = produced
+      if (this.freightState.shipment && !freight.shipment) network = completeNetworkShipment(network)
+      const progressed = advanceExtraTrains({ freight, network, fleet: this.fleetState }, freightElapsed)
+      freight = progressed.freight
+      if (freight !== this.freightState || network !== this.localNetwork || progressed.fleet !== this.fleetState) {
+        const jobFinished = this.fleetState.jobs.b && !progressed.fleet.jobs.b || this.fleetState.jobs.c && !progressed.fleet.jobs.c
+        const mainFinished = this.freightState.shipment && !freight.shipment
+        this.freightState = freight
+        this.localNetwork = network
+        this.fleetState = progressed.fleet
         this.freightSaveElapsed += freightElapsed
-        if (this.freightSaveElapsed >= 1) {
+        this.networkSaveElapsed += freightElapsed
+        if (jobFinished || mainFinished || this.freightSaveElapsed >= 1) {
           this.freightSaveElapsed = 0
-          saveFreightState(this.freightState)
-          saveLocalNetwork(this.localNetwork)
+          this.networkSaveElapsed = 0
+          this.saveOperations()
+          this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment?.secondsRemaining ?? null)
         }
       }
     }
     this.freightRenderElapsed += elapsed
     if (this.freightRenderElapsed >= 0.2) {
       this.freightRenderElapsed = 0
-      this.freight.render(this.freightState, this.localNetwork)
+      this.freight.render(this.freightState, this.localNetwork, this.fleetState)
       if (this.freightState.shipment) this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment.secondsRemaining)
     }
-    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion, this.freightState, this.localNetwork)
+    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion, this.freightState, this.localNetwork, this.fleetState)
     this.hud.render(this.state, telemetry)
     this.audio.update(this.preferences, this.state.playing, this.state.progress, missionPhaseAt(this.state.progress).name)
     this.world.render()

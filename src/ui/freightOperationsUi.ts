@@ -1,10 +1,16 @@
 import { FREIGHT_TIERS, MATERIAL_LIMIT, quoteUpgrade, type FreightState } from '../simulation/freightEconomy.ts'
+import { COMPONENT_BATCH_ALLOY, COMPONENT_BATCH_SIZE, COMPONENT_CAPACITY, TRAIN_PURCHASE_COST, EXTRA_TRAIN_IDS, cargoOrigin, dispatchQuote, extraTrainUnlocked, type CargoKind, type ExtraTrainId, type FleetState } from '../simulation/fleetOperations.ts'
 import { initialLocalNetwork, MAX_LINKS, MAX_STATIONS, ORE_CAPACITY,
   shortestRailPath, stationById, STATION_PRICE, type LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 
 export interface FreightHandlers {
   dispatch(): void
   upgrade(): void
+  buyTrain(): void
+  manufacture(): void
+  dispatchExtra(train: ExtraTrainId, kind: CargoKind, destination: string): void
+  removeLink(a: string, b: string): boolean
+  removeStation(id: string): boolean
   placeStation(x: number, y: number): boolean
   connectStations(a: string, b: string): boolean
   chooseDestination(id: string): void
@@ -19,6 +25,7 @@ export class FreightOperationsUi {
   private readonly map: SVGSVGElement
   private readonly priorInert = new Map<HTMLElement, boolean>()
   private network: LocalRailNetwork = initialLocalNetwork()
+  private fleet: FleetState = { version: 1, unlocked: 0, jobs: { b: null, c: null }, components: 0, manufactured: 0, delivered: 0 }
   private mode: EditorMode = 'inspect'
   private anchor: string | null = null
   private message = 'Tap a station to choose a freight destination.'
@@ -40,6 +47,7 @@ export class FreightOperationsUi {
         <div class="network-coordinate-entry"><label for="freight-placement-x">Map X <input id="freight-placement-x" type="number" min="35" max="485" value="250"/></label><label for="freight-placement-y">Map Y <input id="freight-placement-y" type="number" min="30" max="235" value="80"/></label><button type="button" id="freight-build-coordinate">BUILD AT COORDINATES</button></div>
         <p id="freight-editor-message" class="network-message" role="status" aria-live="polite">Choose a station.</p>
         <div id="freight-station-list" class="network-station-list" aria-label="Station selection"></div>
+        <details class="network-demolition"><summary>EDIT / REMOVE EXISTING RAILS AND STATIONS</summary><p>Demolishing returns half the construction alloy. Rails in use by any active train cannot be removed. Disconnect a station before demolishing it.</p><div id="freight-demolition-list"></div></details>
         <div class="freight-progress-info"><span id="freight-status" role="status" aria-live="polite">READY TO DISPATCH</span><strong id="freight-eta">IDLE</strong></div>
         <div class="freight-progress-track"><div id="freight-progress" class="freight-progress-bar"></div></div>
         <small>Editing costs rail alloy. Connected stations can be used as destinations; the routing system finds the shortest available railway path. Freight only advances while this tab is active.</small>
@@ -48,7 +56,9 @@ export class FreightOperationsUi {
         <div class="freight-card"><h2>01 / Ore supply</h2><p id="freight-ore">EARTH REFINERY: 250 / 250</p><div class="freight-progress-track"><div id="freight-ore-progress" class="freight-progress-bar"></div></div><small>Finite local ore inventory. The refinery replenishes 4 units per active second, up to 250.</small></div>
         <div class="freight-card"><h2>02 / Cargo route</h2><label for="freight-destination">Deliver to</label><select id="freight-destination"></select><p id="freight-route-description"></p><p id="freight-payload"></p><button type="button" id="freight-dispatch">DISPATCH FREIGHT ↗</button><div id="freight-stats" class="freight-stats"></div></div>
         <div class="freight-card"><h2>03 / Expand the fleet</h2><p id="freight-upgrade-info"></p><button type="button" id="freight-upgrade">EXPAND YARD</button></div>
-        <div class="freight-card"><h2>04 / Build for the Moon</h2><p>New lunar railway layouts cost alloy once. Previously purchased layouts can be ridden again free.</p><button type="button" id="freight-to-planner">OPEN LUNAR CONSTRUCTION ↗</button></div>
+        <div class="freight-card" id="fleet-workshop"><h2>04 / Orbital workshop</h2><p>Manufacture higher-value components from rail alloy at Orbital Yard, then transport them to other stations.</p><p id="fleet-workshop-stock" role="status">COMPONENTS: 0</p><button type="button" id="fleet-manufacture">MANUFACTURE COMPONENTS</button><small>Batch: ${COMPONENT_BATCH_ALLOY} alloy → ${COMPONENT_BATCH_SIZE} components. Each delivered component earns 2 alloy.</small></div>
+        <div class="freight-card" id="fleet-console"><h2>05 / Additional trains</h2><p>Buy up to two independent trains, choose cargo and destinations, and run simultaneous services on your railway.</p><button type="button" id="fleet-buy">PURCHASE TRAIN B</button><div id="fleet-train-list" class="fleet-train-list">Additional train services</div><p id="fleet-statistics" class="freight-stats"></p></div>
+        <div class="freight-card"><h2>06 / Build for the Moon</h2><p>New lunar railway layouts cost alloy once. Previously purchased layouts can be ridden again free.</p><button type="button" id="freight-to-planner">OPEN LUNAR CONSTRUCTION ↗</button></div>
       </div></div><p class="freight-footnote">Fictional short-range orbital railway. The editable local network is separate from the player-designed Earth–Moon guideway; stations are bounded to this construction map.</p></div>`
     root.append(this.panel)
     const required = <T extends Element>(selector: string): T => {
@@ -61,6 +71,21 @@ export class FreightOperationsUi {
     required<HTMLButtonElement>('#freight-to-planner').addEventListener('click', () => { this.returnToPlanner = true; this.close() })
     required<HTMLButtonElement>('#freight-dispatch').addEventListener('click', () => handlers.dispatch())
     required<HTMLButtonElement>('#freight-upgrade').addEventListener('click', () => handlers.upgrade())
+    required<HTMLButtonElement>('#fleet-buy').addEventListener('click', () => handlers.buyTrain())
+    required<HTMLButtonElement>('#fleet-manufacture').addEventListener('click', () => handlers.manufacture())
+    required('#fleet-train-list').addEventListener('click', event => {
+      const target = (event.target as Element).closest<HTMLButtonElement>('[data-fleet-dispatch]')
+      if (!target) return
+      const id = target.dataset.fleetDispatch as ExtraTrainId
+      const row = this.panel.querySelector<HTMLElement>(`#fleet-row-${id}`)
+      const kind = row?.querySelector<HTMLSelectElement>('[data-fleet-kind]')?.value as CargoKind
+      const destination = row?.querySelector<HTMLSelectElement>('[data-fleet-target]')?.value
+      if (destination && (kind === 'ore' || kind === 'components')) handlers.dispatchExtra(id, kind, destination)
+    })
+    required('#fleet-train-list').addEventListener('change', event => {
+      const select = event.target as HTMLSelectElement
+      if (select.matches('[data-fleet-kind]')) this.renderFleetControls()
+    })
     required<HTMLButtonElement>('#freight-place').addEventListener('click', () => this.toggleMode('place'))
     required<HTMLButtonElement>('#freight-build-coordinate').addEventListener('click', () => {
       const x = Number(required<HTMLInputElement>('#freight-placement-x').value)
@@ -90,6 +115,15 @@ export class FreightOperationsUi {
     required('#freight-station-list').addEventListener('click', e => {
       const marker = (e.target as Element).closest('[data-select-network-station]')
       if (marker) this.selectStation(marker.getAttribute('data-select-network-station')!)
+    })
+    required('#freight-demolition-list').addEventListener('click', event => {
+      const target = (event.target as Element).closest<HTMLButtonElement>('button[data-demolish]')
+      if (!target) return
+      const done = target.dataset.demolish === 'link' ? handlers.removeLink(target.dataset.from!, target.dataset.to!)
+        : handlers.removeStation(target.dataset.station!)
+      this.message = done ? 'Removed. Half of the construction alloy has been salvaged.'
+        : 'Cannot remove while connected or in use by a train.'
+      this.renderMessage()
     })
     this.panel.addEventListener('keydown', event => {
       if (event.key === 'Escape') { event.preventDefault(); this.close() }
@@ -143,6 +177,10 @@ export class FreightOperationsUi {
     const path = this.network.activePath ?? shortestRailPath(this.network)
     const highlight = new Set<string>()
     if (path) for (let i = 1; i < path.stops.length; i++) highlight.add([path.stops[i - 1], path.stops[i]].sort().join(':'))
+    for (const id of EXTRA_TRAIN_IDS) {
+      const job = this.fleet.jobs[id]
+      if (job) for (let i = 1; i < job.path.length; i++) highlight.add([job.path[i - 1], job.path[i]].sort().join(':'))
+    }
     const links = this.network.links.map(link => {
       const a = stationById(this.network, link.a)!, b = stationById(this.network, link.b)!
       const selected = highlight.has([link.a, link.b].sort().join(':'))
@@ -165,12 +203,114 @@ export class FreightOperationsUi {
         if (remaining <= 0) break
       }
     }
+    const extraMarkers = EXTRA_TRAIN_IDS.map(id => {
+      const job = this.fleet.jobs[id]
+      if (!job) return ''
+      const travelled = job.length * (1 - job.secondsRemaining / job.totalSeconds)
+      const pos = this.positionOnStops(job.path, travelled)
+      return `<g transform="translate(${pos.x.toFixed(2)} ${pos.y.toFixed(2)})" pointer-events="none"><circle r="9" fill="${id === 'b' ? '#b8a4ff' : '#ff9e83'}" stroke="white" stroke-width="1.8"/><text y="3.5" fill="#13243a" font-size="10" text-anchor="middle" font-weight="bold">${id.toUpperCase()}</text></g>`
+    }).join('')
     this.map.innerHTML = `<rect x="1" y="1" width="518" height="268" rx="14" fill="#071d30" stroke="#34556a"/>
       <path d="M 25 55 H495 M25 105 H495 M25 155 H495 M25 205 H495 M75 20 V250 M175 20 V250 M275 20 V250 M375 20 V250 M475 20 V250" fill="none" stroke="#2d4b5c" stroke-width=".6"/>
-      ${links}${stations}<g id="freight-train" transform="translate(${trainX.toFixed(2)} ${trainY.toFixed(2)})" pointer-events="none"><rect x="-9" y="-6" width="18" height="12" rx="3" fill="#f4ce79" stroke="#fff3bd" stroke-width="2"/><circle cx="0" cy="0" r="2.5" fill="#304352"/></g>`
+      ${links}${stations}<g id="freight-train" transform="translate(${trainX.toFixed(2)} ${trainY.toFixed(2)})" pointer-events="none"><rect x="-9" y="-6" width="18" height="12" rx="3" fill="#f4ce79" stroke="#fff3bd" stroke-width="2"/><circle cx="0" cy="0" r="2.5" fill="#304352"/></g>${extraMarkers}`
+  }
+  private positionOnStops(stops: readonly string[], travelled: number) {
+    let left = travelled
+    for (let i = 1; i < stops.length; i++) {
+      const a = stationById(this.network, stops[i - 1])!, b = stationById(this.network, stops[i])!
+      const distance = Math.hypot(b.x - a.x, b.y - a.y)
+      if (left <= distance || i === stops.length - 1) {
+        const t = Math.max(0, Math.min(1, left / distance))
+        return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+      }
+      left -= distance
+    }
+    const station = stationById(this.network, stops[0])!
+    return { x: station.x, y: station.y }
+  }
+
+  private renderFleetControls() {
+    const list = this.panel.querySelector<HTMLElement>('#fleet-train-list')!
+    for (const id of EXTRA_TRAIN_IDS) {
+      const row = this.panel.querySelector<HTMLElement>(`#fleet-row-${id}`)!
+      const job = this.fleet.jobs[id]
+      const unlocked = extraTrainUnlocked(this.fleet, id)
+      const kindSelect = row.querySelector<HTMLSelectElement>('[data-fleet-kind]')!
+      const destinationSelect = row.querySelector<HTMLSelectElement>('[data-fleet-target]')!
+      const kind = kindSelect.value === 'components' ? 'components' : 'ore'
+      const destinations = this.network.stations.filter(station => station.id !== cargoOrigin(kind))
+      const selected = destinationSelect.value
+      if (destinationSelect.options.length !== destinations.length || destinations.some((station, i) => destinationSelect.options[i]?.value !== station.id)) {
+        destinationSelect.replaceChildren(...destinations.map(station => new Option(station.name, station.id)))
+        destinationSelect.value = destinations.some(station => station.id === selected) ? selected : destinations[0]?.id ?? ''
+      }
+      const quote = dispatchQuote(this.fleet, this.currentFreight!, this.network, id, kind, destinationSelect.value)
+      row.querySelector<HTMLElement>('[data-fleet-status]')!.textContent = !unlocked ? 'LOCKED · PURCHASE TO ENABLE'
+        : job ? `${job.kind.toUpperCase()} ${job.from.toUpperCase()} → ${job.destination.toUpperCase()} · ${Math.ceil(job.secondsRemaining)}s left · +${job.payout} alloy`
+        : quote ? `READY · ${quote.cargo} ${kind} · ${quote.seconds}s · +${quote.payout} alloy` : 'NO SUPPLY, STORAGE OR CONNECTED ROUTE'
+      kindSelect.disabled = !unlocked || !!job
+      destinationSelect.disabled = !unlocked || !!job
+      const dispatch = row.querySelector<HTMLButtonElement>('[data-fleet-dispatch]')!
+      dispatch.disabled = !quote
+      dispatch.textContent = job ? 'IN TRANSIT' : !unlocked ? 'LOCKED' : 'DISPATCH TRAIN ' + id.toUpperCase()
+    }
+    list.hidden = this.fleet.unlocked === 0
+  }
+  private renderDemolition() {
+    const target = this.panel.querySelector<HTMLElement>('#freight-demolition-list')!
+    const activePaths = [this.network.activePath?.stops, this.fleet.jobs.b?.path, this.fleet.jobs.c?.path]
+      .filter((path): path is readonly string[] => !!path)
+    const used = (a: string, b: string) => activePaths.some(path => path.slice(1).some((at, i) =>
+      [at, path[i]].sort().join(':') === [a, b].sort().join(':')))
+    const signature = this.network.stations.map(s => s.id).join(',') + ':'
+      + this.network.links.map(l => `${l.a}-${l.b}:${used(l.a, l.b)}`).join(',')
+    if (target.dataset.renderKey === signature) return
+    target.dataset.renderKey = signature
+    target.replaceChildren()
+    for (const link of this.network.links) {
+      const row = document.createElement('div')
+      row.className = 'demolition-row'
+      const title = document.createElement('span')
+      title.textContent = `${stationById(this.network, link.a)!.name} – ${stationById(this.network, link.b)!.name}`
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.textContent = used(link.a, link.b) ? 'TRAIN USING TRACK' : 'REMOVE TRACK'
+      button.disabled = used(link.a, link.b)
+      button.dataset.demolish = 'link'
+      button.dataset.from = link.a
+      button.dataset.to = link.b
+      row.append(title, button)
+      target.append(row)
+    }
+    for (const station of this.network.stations.slice(2)) {
+      const row = document.createElement('div')
+      row.className = 'demolition-row'
+      const title = document.createElement('span')
+      title.textContent = station.name
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.textContent = this.network.links.some(l => l.a === station.id || l.b === station.id) ? 'DISCONNECT FIRST' : 'REMOVE STATION'
+      button.disabled = this.network.links.some(l => l.a === station.id || l.b === station.id)
+      button.dataset.demolish = 'station'
+      button.dataset.station = station.id
+      row.append(title, button)
+      target.append(row)
+    }
+  }
+  private currentFreight: FreightState | null = null
+  private setupFleetRows() {
+    const list = this.panel.querySelector<HTMLElement>('#fleet-train-list')!
+    if (list.querySelector('#fleet-row-b')) return
+    for (const id of EXTRA_TRAIN_IDS) {
+      const row = document.createElement('section')
+      row.className = 'fleet-train-row'
+      row.id = `fleet-row-${id}`
+      row.innerHTML = `<h3>TRAIN ${id.toUpperCase()}</h3><label>Cargo <select aria-label="Train ${id.toUpperCase()} cargo" data-fleet-kind><option value="ore">Ore · Earth Depot</option><option value="components">Components · Orbital Yard</option></select></label><label>Destination <select aria-label="Train ${id.toUpperCase()} destination" data-fleet-target></select></label><p data-fleet-status role="status"></p><button type="button" data-fleet-dispatch="${id}">DISPATCH TRAIN ${id.toUpperCase()}</button>`
+      list.append(row)
+    }
   }
   get isOpen() { return !this.panel.classList.contains('hidden') }
-  open(state: FreightState, network: LocalRailNetwork, returnToPlanner = false) {
+  open(state: FreightState, network: LocalRailNetwork, fleet: FleetState, returnToPlanner = false) {
     if (this.isOpen) return
     this.returnToPlanner = returnToPlanner
     this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -181,7 +321,7 @@ export class FreightOperationsUi {
       sibling.inert = true
     }
     this.panel.classList.remove('hidden')
-    this.render(state, network)
+    this.render(state, network, fleet)
     this.panel.querySelector<HTMLButtonElement>('#freight-close')?.focus()
   }
   close() {
@@ -194,9 +334,11 @@ export class FreightOperationsUi {
     this.handlers.close(returnToPlanner)
     if (!returnToPlanner) this.opener?.focus()
   }
-  render(state: FreightState, network: LocalRailNetwork) {
+  render(state: FreightState, network: LocalRailNetwork, fleet: FleetState) {
     if (!this.isOpen) return
     this.network = network
+    this.fleet = fleet
+    this.currentFreight = state
     const set = (id: string, value: string) => { this.panel.querySelector<HTMLElement>(`#${id}`)!.textContent = value }
     set('freight-materials', state.materials.toLocaleString('en-GB'))
     const tier = FREIGHT_TIERS[state.tier]
@@ -249,6 +391,17 @@ export class FreightOperationsUi {
     this.panel.querySelector<HTMLButtonElement>('#freight-place')!.disabled = network.stations.length >= MAX_STATIONS || state.materials < STATION_PRICE
     this.panel.querySelector<HTMLButtonElement>('#freight-build-coordinate')!.disabled = network.stations.length >= MAX_STATIONS || state.materials < STATION_PRICE
     this.panel.querySelector<HTMLButtonElement>('#freight-link')!.disabled = network.links.length >= MAX_LINKS
+    this.setupFleetRows()
+    const trainBuy = this.panel.querySelector<HTMLButtonElement>('#fleet-buy')!
+    trainBuy.disabled = fleet.unlocked >= 2 || state.materials < (fleet.unlocked === 0 ? TRAIN_PURCHASE_COST[0] : TRAIN_PURCHASE_COST[1])
+    trainBuy.textContent = fleet.unlocked >= 2 ? 'ALL TRAINS PURCHASED'
+      : `PURCHASE TRAIN ${(fleet.unlocked === 0 ? 'B' : 'C')} · ${(fleet.unlocked === 0 ? TRAIN_PURCHASE_COST[0] : TRAIN_PURCHASE_COST[1])} ALLOY`
+    const manufacture = this.panel.querySelector<HTMLButtonElement>('#fleet-manufacture')!
+    manufacture.disabled = state.materials < COMPONENT_BATCH_ALLOY || fleet.components + COMPONENT_BATCH_SIZE > COMPONENT_CAPACITY
+    set('fleet-workshop-stock', `${fleet.components}/${COMPONENT_CAPACITY} COMPONENTS STOCKPILED · ${fleet.manufactured} MANUFACTURED`)
+    set('fleet-statistics', `${fleet.unlocked + 1} trains owned · ${fleet.delivered} extra-train deliveries completed`)
+    this.renderFleetControls()
+    this.renderDemolition()
     this.renderMessage()
     this.renderMap(fraction)
   }

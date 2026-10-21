@@ -19,3 +19,10 @@
 - M8: expanded interplanetary economy, exploration, map/route discovery, visual polish, accessibility and mobile optimisation. Cloud sync and multiplayer remain deferred.
 
 Quality gate each round: correct source snapshots, safe hash-checked change packs, deterministic reducer tests, full repo compile, browser + touch QA, no console errors, stable apparent sizes and measured rendering performance.
+
+### Proposed Round 6 (integration and QA still required)
+
+- M6c: Three total trains with two additional purchasable freight vehicles; individual independent shipments; Ore and manufactured Components; arbitrary station-to-station routes; atomic operations snapshots with legacy migration.
+- M5c: Demolish unoccupied links and disconnected outposts with partial salvage, without removing critical original depots or destroying in-flight paths.
+- Follow-on: train schedules, junction signalling, destination demand and contracts; interactive lunar arrival hub, visual polishing, more worlds after core gameplay QA.
+- See `docs/ROUND6_QA.md` before claiming shipping status.

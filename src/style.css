@@ -157,3 +157,19 @@ button:focus-visible,input:focus-visible{outline:3px solid #b5f4ff;outline-offse
 .network-coordinate-entry input { max-width: 6.7rem; min-height: 42px; background: #0e3045; color: #fff; border-radius: 4px; border: 1px solid #71a2be; padding: .45rem; }
 .network-coordinate-entry button { min-height: 44px; background: #246b72; color: white; border: 1px solid #b2e7d9; border-radius: 5px; cursor: pointer; padding: .45rem .75rem; }
 .network-coordinate-entry button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Round 6: independent train console. Vertical cards preserve narrow phone layouts. */
+.fleet-train-list { display: grid; gap: .7rem; margin-top: .8rem; }
+.fleet-train-row { border: 1px solid rgba(147,202,223,.25); border-radius: 10px; padding: .8rem; background: rgba(8,27,48,.42); display: grid; gap: .5rem; }
+.fleet-train-row h3 { margin: 0; font-size: .95rem; }
+.fleet-train-row label { display: grid; gap: .25rem; font-size: .8rem; color: #c4dce9; }
+.fleet-train-row select { width: 100%; max-width: 100%; min-height: 42px; background: #112c40; color: #f0f7fa; border: 1px solid #688ca2; border-radius: 5px; padding: .4rem; }
+.fleet-train-row button, #fleet-buy, #fleet-manufacture { min-height: 44px; }
+.fleet-train-row [data-fleet-status] { font-size: .79rem; line-height: 1.4; margin: .25rem 0; overflow-wrap: normal; }
+
+.network-demolition { border: 1px solid rgba(159,196,212,.25); padding: .6rem .75rem; border-radius: 8px; margin-top: .6rem; }
+.network-demolition summary { cursor: pointer; font-size: .8rem; font-weight: 700; }
+.network-demolition p { font-size: .8rem; line-height: 1.45; }
+.demolition-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; align-items: center; padding: .4rem 0; border-top: 1px solid rgba(159,196,212,.18); }
+.demolition-row span { font-size: .8rem; }
+.demolition-row button { min-height: 42px; }

@@ -9,6 +9,7 @@ import { createEnvironment } from './environment.ts'
 import { createRailway } from './railway.ts'
 import { createFreightInfrastructure } from './freightInfrastructure.ts'
 import type { FreightState } from '../simulation/freightEconomy.ts'
+import type { FleetState } from '../simulation/fleetOperations.ts'
 import type { LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 
 export interface Telemetry {
@@ -52,7 +53,7 @@ export class WorldScene {
     this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
   }
 
-  update(progress: number, cameraController: CameraController, elapsedSeconds = 1 / 60, reducedMotion = false, freight?: FreightState, network?: LocalRailNetwork): Telemetry {
+  update(progress: number, cameraController: CameraController, elapsedSeconds = 1 / 60, reducedMotion = false, freight?: FreightState, network?: LocalRailNetwork, fleet?: FleetState): Telemetry {
     // Timeline is distance-based rather than Bézier parameter-based.
     const routeT = this.route.curve.getUtoTmapping(progress, progress * this.route.lengthKm / KILOMETRES_PER_WORLD_UNIT)
     this.route.curve.getPoint(routeT, this.point)
@@ -61,7 +62,7 @@ export class WorldScene {
     this.carriage.group.quaternion.setFromUnitVectors(this.forward, this.tangent)
     this.bodies.update(progress, this.route.simulatedDays)
     this.railway.update(progress, reducedMotion)
-    if (freight && network) this.freightInfrastructure.update(freight, network)
+    if (freight && network) this.freightInfrastructure.update(freight, network, fleet)
     cameraController.apply(this.point, this.tangent, this.bodies.moon.position, elapsedSeconds, reducedMotion)
     const moonDistance = Math.max(MOON_RADIUS, this.bodies.moon.position.distanceTo(this.camera.position))
     return {

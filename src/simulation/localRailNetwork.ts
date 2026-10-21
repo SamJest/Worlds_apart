@@ -99,13 +99,32 @@ export function addLink(network: LocalRailNetwork, a: string, b: string): LocalR
     || !stationById(network, a) || !stationById(network, b)) return null
   return { ...network, links: [...network.links, { a, b }] }
 }
+/** Removes track unless a live legacy or auxiliary train is currently using it. */
+export function removeLink(network: LocalRailNetwork, a: string, b: string,
+  protectedPaths: readonly (readonly string[])[] = []): LocalRailNetwork | null {
+  const key = linkKey(a, b)
+  if (!network.links.some(link => linkKey(link.a, link.b) === key)) return null
+  const paths = [network.activePath?.stops, ...protectedPaths].filter((path): path is readonly string[] => !!path)
+  if (paths.some(path => path.slice(1).some((station, i) => linkKey(path[i], station) === key))) return null
+  return { ...network, links: network.links.filter(link => linkKey(link.a, link.b) !== key) }
+}
+/** Station demolition requires disconnecting its links first. Monotonic IDs prevent
+ * old route IDs from silently referring to a new station placed in the same slot. */
+export function removeStation(network: LocalRailNetwork, id: string): LocalRailNetwork | null {
+  if (id === 's0' || id === 's1' || !stationById(network, id)
+    || network.links.some(link => link.a === id || link.b === id)
+    || network.activePath?.stops.includes(id)) return null
+  return { ...network, stations: network.stations.filter(station => station.id !== id),
+    destination: network.destination === id ? 's1' : network.destination }
+}
 export function selectDestination(network: LocalRailNetwork, station: string): LocalRailNetwork {
   return station !== 's0' && stationById(network, station) ? { ...network, destination: station } : network
 }
-/** Deterministic Dijkstra route finder, with stable alphabetical tie breaking. */
-export function shortestRailPath(network: LocalRailNetwork, destination = network.destination): RailPath | null {
-  if (!stationById(network, destination) || destination === 's0') return null
-  const distances = new Map<string, number>([['s0', 0]])
+/** Deterministic undirected Dijkstra route finder; arbitrary station origins support
+ * multi-train routes while the legacy Earth Depot wrapper preserves old behaviour. */
+export function shortestRailPathBetween(network: LocalRailNetwork, origin: string, destination: string): RailPath | null {
+  if (!stationById(network, origin) || !stationById(network, destination) || origin === destination) return null
+  const distances = new Map<string, number>([[origin, 0]])
   const parents = new Map<string, string>()
   const visited = new Set<string>()
   while (visited.size < network.stations.length) {
@@ -114,7 +133,7 @@ export function shortestRailPath(network: LocalRailNetwork, destination = networ
     if (!current) break
     if (current.id === destination) {
       const stops = [destination]
-      while (stops[0] !== 's0') stops.unshift(parents.get(stops[0])!)
+      while (stops[0] !== origin) stops.unshift(parents.get(stops[0])!)
       return { stops, length: distances.get(destination)! }
     }
     visited.add(current.id)
@@ -122,10 +141,16 @@ export function shortestRailPath(network: LocalRailNetwork, destination = networ
       const next = link.a === current.id ? link.b : link.b === current.id ? link.a : null
       if (!next || visited.has(next)) continue
       const candidate = distances.get(current.id)! + segmentLength(current, stationById(network, next)!)
-      if (candidate < (distances.get(next) ?? Infinity) - 1e-6) { distances.set(next, candidate); parents.set(next, current.id) }
+      if (candidate < (distances.get(next) ?? Infinity) - 1e-6) {
+        distances.set(next, candidate)
+        parents.set(next, current.id)
+      }
     }
   }
   return null
+}
+export function shortestRailPath(network: LocalRailNetwork, destination = network.destination): RailPath | null {
+  return shortestRailPathBetween(network, 's0', destination)
 }
 export function beginNetworkShipment(network: LocalRailNetwork, path: RailPath, cargo: number): LocalRailNetwork | null {
   if (network.activePath || !integer(cargo, 1, 200) || network.ore + 1e-7 < cargo) return null
