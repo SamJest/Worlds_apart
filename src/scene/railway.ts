@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { GameConfig } from '../config/gameConfig.ts'
 import type { EarthMoonRoute } from '../simulation/astronomy.ts'
 import { TrackOrientation } from './trackOrientation.ts'
+import type { RideAtmosphere } from '../simulation/rideChoreography.ts'
 
 /** Entire route is still visualised at astronomical scale; the magnetic guideway is fictional. */
 export function createRailway(route: EarthMoonRoute, config: GameConfig) {
@@ -82,6 +83,9 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   }
   if (gates.instanceColor) gates.instanceColor.needsUpdate = true
   group.add(gates)
+  const iceAccent = new THREE.Color(0xb0edff)
+  const violetAccent = new THREE.Color(0xe4abff)
+  const goldAccent = new THREE.Color(0xffdbad)
   let lowDetail = false
   const halfWindowWorldUnits = 5.4
   const routeLengthWorldUnits = route.lengthKm / 1000
@@ -112,7 +116,7 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
 
   return {
     group,
-    update(progress: number, reducedMotion = false) {
+    update(progress: number, reducedMotion = false, atmosphere?: RideAtmosphere) {
       for (let index = 0; index < nearCount; index++) {
         const offset = ((index + 0.5) / nearCount * 2 - 1) * halfWindowWorldUnits
         const lengthFraction = progress + offset / routeLengthWorldUnits
@@ -152,7 +156,11 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
         gates.instanceMatrix.needsUpdate = true
       }
       const pulse = reducedMotion ? 1 : 0.88 + 0.12 * Math.sin(progress * 210)
-      for (const material of beaconMaterials) material.opacity = 0.48 * pulse
+      const energy = reducedMotion ? 0 : atmosphere?.energy ?? 0
+      railMaterial.emissiveIntensity = 0.52 + 0.70 * energy
+      gateMaterial.opacity = lowDetail ? 0.10 : 0.16 + 0.24 * energy
+      gateMaterial.color.copy(iceAccent).lerp(violetAccent, atmosphere?.violetMix ?? 0).lerp(goldAccent, atmosphere?.goldMix ?? 0)
+      for (const material of beaconMaterials) material.opacity = (0.45 + 0.3 * energy) * pulse
     },
     setQuality(quality: 'auto' | 'performance' | 'quality') {
       lowDetail = quality === 'performance'

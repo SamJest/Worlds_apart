@@ -12,6 +12,8 @@ import type { FreightState } from '../simulation/freightEconomy.ts'
 import type { FleetState } from '../simulation/fleetOperations.ts'
 import type { LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 import { TrackOrientation } from './trackOrientation.ts'
+import { createRideWake } from './rideWake.ts'
+import { rideAtmosphereAt } from '../simulation/rideChoreography.ts'
 
 export interface Telemetry {
   progress: number
@@ -32,6 +34,7 @@ export class WorldScene {
   private readonly bodies
   private railway
   private readonly carriage
+  private readonly wake
   private readonly freightInfrastructure
   private readonly point = new THREE.Vector3()
   private readonly tangent = new THREE.Vector3()
@@ -53,6 +56,8 @@ export class WorldScene {
     this.bodies.setSites(route.sites)
     this.railway = createRailway(route, config)
     this.carriage = createCarriage()
+    this.wake = createRideWake()
+    this.carriage.group.add(this.wake.group)
     this.freightInfrastructure = createFreightInfrastructure()
     this.freightInfrastructure.group.visible = false
     this.scene.add(this.environment.group, this.bodies.group, this.railway.group, this.carriage.group, this.freightInfrastructure.group)
@@ -60,7 +65,7 @@ export class WorldScene {
     this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
   }
 
-  update(progress: number, cameraController: CameraController, elapsedSeconds = 1 / 60, reducedMotion = false, freight?: FreightState, network?: LocalRailNetwork, fleet?: FleetState): Telemetry {
+  update(progress: number, cameraController: CameraController, elapsedSeconds = 1 / 60, reducedMotion = false, playing = false, freight?: FreightState, network?: LocalRailNetwork, fleet?: FleetState): Telemetry {
     // Timeline is distance-based rather than Bézier parameter-based.
     const routeT = this.route.curve.getUtoTmapping(progress, progress * this.route.lengthKm / KILOMETRES_PER_WORLD_UNIT)
     this.route.curve.getPoint(routeT, this.point)
@@ -71,9 +76,18 @@ export class WorldScene {
     // correction or unrelated carriage-only banking is permitted here.
     this.trackOrientation.quaternionAt(routeT, this.carriage.group.quaternion)
     this.bodies.update(progress, this.route.simulatedDays)
-    this.railway.update(progress, reducedMotion)
+    const atmosphere = rideAtmosphereAt(progress, this.route.rideProfile)
+    this.railway.update(progress, reducedMotion, atmosphere)
+    this.wake.update(atmosphere, elapsedSeconds, playing, reducedMotion)
     if (freight && network) this.freightInfrastructure.update(freight, network, fleet)
     cameraController.apply(this.point, this.tangent, this.bodies.moon.position, elapsedSeconds, reducedMotion, this.frameUp)
+    // A gentle cinematic widening makes speed changes legible without shaking the head.
+    const requestedFov = this.config.camera.fieldOfViewDegrees + (reducedMotion || !playing ? 0 : atmosphere.fovBoostDegrees)
+    const nextFov = THREE.MathUtils.lerp(this.camera.fov, requestedFov, 1 - Math.exp(-Math.max(0, elapsedSeconds) * 3))
+    if (Math.abs(nextFov - this.camera.fov) > 0.001) {
+      this.camera.fov = nextFov
+      this.camera.updateProjectionMatrix()
+    }
     this.environment.update(this.camera.position, elapsedSeconds, reducedMotion)
     const moonDistance = Math.max(MOON_RADIUS, this.bodies.moon.position.distanceTo(this.camera.position))
     return {
@@ -104,6 +118,7 @@ export class WorldScene {
   setQuality(quality: QualityPreset) {
     this.quality = quality
     this.environment.setQuality(quality)
+    this.wake.setQuality(quality)
     this.railway.setQuality(quality)
     this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
   }
@@ -123,6 +138,7 @@ export class WorldScene {
     this.railway.dispose()
     this.freightInfrastructure.dispose()
     this.carriage.dispose()
+    this.wake.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()
   }

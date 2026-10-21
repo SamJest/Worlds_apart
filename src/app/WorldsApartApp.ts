@@ -1,5 +1,6 @@
 import type { RideSites } from '../simulation/surfaceSites.ts'
 import { AudioEngine } from '../audio/audioEngine.ts'
+import { rideAtmosphereAt } from '../simulation/rideChoreography.ts'
 import { addLink, addStation, advanceNetworkProduction, beginNetworkShipment, completeNetworkShipment, linkCost, removeLink, removeStation, selectDestination, shortestRailPath, stationById, STATION_PRICE, type LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 import { FreightOperationsUi } from '../ui/freightOperationsUi.ts'
 import { advanceFreight, dispatchFreight, FREIGHT_TIERS, MATERIAL_LIMIT, quoteRoute, routeOwnershipId, upgradeFreightYard, type FreightState } from '../simulation/freightEconomy.ts'
@@ -311,9 +312,9 @@ export class WorldsApartApp {
       this.freight.render(this.freightState, this.localNetwork, this.fleetState)
       if (this.freightState.shipment) this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment.secondsRemaining)
     }
-    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion)
+    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion, this.state.playing)
     this.hud.render(this.state, telemetry)
-    this.audio.update(this.preferences, this.state.playing, this.state.progress, missionPhaseAt(this.state.progress).name)
+    this.audio.update(this.preferences, this.state.playing, this.state.progress, missionPhaseAt(this.state.progress).name, rideAtmosphereAt(this.state.progress, this.route.rideProfile).energy)
     this.world.render()
     this.diagnostics.update(elapsed, telemetry, this.world.renderer)
     this.animationFrame = requestAnimationFrame(this.tick)
