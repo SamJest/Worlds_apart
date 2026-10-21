@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { InputController, touchLookMultiplier } from '../src/input/inputController.ts'
 import { wrapYaw } from '../src/camera/viewAngles.ts'
 
-test('360-degree first-person yaw is mathematically unbounded', () => {
+test('360-degree third-person orbit yaw is mathematically unbounded', () => {
   let yaw = 0
   for (let i = 0; i < 48; i++) yaw = wrapYaw(yaw + Math.PI / 12)
   assert.ok(Math.abs(yaw) < 1e-10)

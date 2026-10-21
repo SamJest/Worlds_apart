@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { CameraController, CameraMode } from '../camera/cameraController.ts'
+import type { CameraController, CameraMode, FacingDirection } from '../camera/cameraController.ts'
 import type { GameConfig } from '../config/gameConfig.ts'
 import type { QualityPreset } from '../ui/viewPreferences.ts'
 import { EARTH_RADIUS, KILOMETRES_PER_WORLD_UNIT, MOON_RADIUS, apparentDiameterDegrees, type EarthMoonRoute } from '../simulation/astronomy.ts'
@@ -12,6 +12,7 @@ import type { FreightState } from '../simulation/freightEconomy.ts'
 import type { FleetState } from '../simulation/fleetOperations.ts'
 import type { LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 import { coasterBankRadians } from '../simulation/rideFeel.ts'
+import { TrackOrientation } from './trackOrientation.ts'
 
 export interface Telemetry {
   progress: number
@@ -20,6 +21,7 @@ export interface Telemetry {
   moonAngularDiameterDegrees: number
   simulatedDays: number
   cameraMode: CameraMode
+  cameraFacing: FacingDirection
   worldPosition: THREE.Vector3
 }
 
@@ -34,12 +36,12 @@ export class WorldScene {
   private readonly freightInfrastructure
   private readonly point = new THREE.Vector3()
   private readonly tangent = new THREE.Vector3()
-  private readonly gravityUp = new THREE.Vector3(0, 1, 0)
   private readonly frameUp = new THREE.Vector3()
   private readonly frameSide = new THREE.Vector3()
   private readonly aheadTangent = new THREE.Vector3()
   private readonly frameMatrix = new THREE.Matrix4()
   private readonly frameBank = new THREE.Quaternion()
+  private trackOrientation: TrackOrientation
   private quality: QualityPreset = 'auto'
 
   constructor(viewport: HTMLElement, private route: EarthMoonRoute, private readonly config: GameConfig) {
@@ -48,6 +50,7 @@ export class WorldScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = config.renderer.toneMappingExposure
     this.camera = new THREE.PerspectiveCamera(config.camera.fieldOfViewDegrees, 1, config.camera.nearWorldUnits, config.camera.farWorldUnits)
+    this.trackOrientation = new TrackOrientation(route.curve)
     this.scene.background = new THREE.Color(0x020611)
     this.environment = createEnvironment(config)
     this.bodies = createCelestialBodies(this.renderer, config)
@@ -65,16 +68,10 @@ export class WorldScene {
     // Timeline is distance-based rather than Bézier parameter-based.
     const routeT = this.route.curve.getUtoTmapping(progress, progress * this.route.lengthKm / KILOMETRES_PER_WORLD_UNIT)
     this.route.curve.getPoint(routeT, this.point)
-    this.route.curve.getTangent(routeT, this.tangent).normalize()
+    this.trackOrientation.frameAt(routeT, this.tangent, this.frameUp, this.frameSide)
     this.carriage.group.position.copy(this.point)
-    // A real ride banks through curves; keep a stable rolling frame instead of
-    // independently rotating the carriage and camera from their forward vectors.
-    this.frameUp.copy(this.gravityUp).addScaledVector(this.tangent, -this.tangent.y)
-    if (this.frameUp.lengthSq() < 0.000001) {
-      this.frameUp.set(0, 0, 1).addScaledVector(this.tangent, -this.tangent.z)
-    }
-    this.frameUp.normalize()
-    this.frameSide.crossVectors(this.frameUp, this.tangent).normalize()
+    // Rails, carriage and first-person camera share the same transported frame;
+    // banking is applied on top rather than stabilising back to the world horizon.
     this.route.curve.getTangent(Math.min(1, routeT + 0.002), this.aheadTangent).normalize()
     const bank = coasterBankRadians(this.aheadTangent.dot(this.frameSide), reducedMotion)
     this.frameBank.setFromAxisAngle(this.tangent, bank)
@@ -95,6 +92,7 @@ export class WorldScene {
       moonAngularDiameterDegrees: apparentDiameterDegrees(MOON_RADIUS, moonDistance),
       simulatedDays: progress * this.route.simulatedDays,
       cameraMode: cameraController.mode,
+      cameraFacing: cameraController.facing,
       worldPosition: this.point.clone(),
     }
   }
@@ -103,6 +101,7 @@ export class WorldScene {
     this.scene.remove(this.railway.group)
     this.railway.dispose()
     this.route = route
+    this.trackOrientation = new TrackOrientation(route.curve)
     this.bodies.setSites(route.sites)
     this.railway = createRailway(route, this.config)
     this.scene.add(this.railway.group)

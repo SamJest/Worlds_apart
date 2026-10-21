@@ -4,7 +4,9 @@
 
 Worlds Apart is an **immediate creative space rollercoaster**. The thrill of building impossible shapes and riding them through spectacular, scientifically scaled celestial scenery is the core. There must be no material, contract, freight, or currency requirement to enjoy the ride. The old freight code remains dormant for rollback and is not touched here.
 
-## Specific 360° camera correction
+## Specific camera correction
+
+> Current control note: later player feedback moved unrestricted horizontal orbit to Third Person. First Person now follows the track with Front/Left/Back/Right selections and vertical look only; every ride starts facing the departure planet.
 
 The original `InputController.pointerMove` applied `event.clientX - lastX` but never updated `lastX` or `lastY`. Because the camera already accumulated these large deltas frame after frame, touch yaw became unpredictable and a swipe could appear not to turn the view properly. The fix updates both coordinates **on every pointer move**, processes only the active pointer and multiplies touch input by a screen-width-aware factor. Keyboard `B` and the on-screen Look Back control remain intact, and camera mode switching now keeps the head's direction. No yaw clamp is reintroduced. Glass replaces the old opaque overhead canopy.
 
@@ -24,7 +26,7 @@ The original `InputController.pointerMove` applied `event.clientX - lastX` but n
 ## Browser acceptance (Codex must execute before merge/deployment)
 
 1. `npm ci && npm run check` using the full GitHub repository with package-lock and installed dependencies. The ChatGPT context export intentionally omits package-lock and node_modules.
-2. Test a narrow mobile viewport (390×844) and actual Android Chrome with touch, both `first-person` and `external`: turn left, right, 180° and through 360° using repeated one-finger swipes. Look Back should face the departing Earth around 10–40% of the journey; then resume looking ahead.
+2. Test a narrow mobile viewport (390×844) and actual Android Chrome with touch: select all four first-person facings, drag vertically, then switch to Third Person and orbit through 360° using repeated one-finger swipes. A new ride should initially face the departing Earth.
 3. Confirm pointer gestures move incrementally and do not jump back, drift after release or react to second-finger movement.
 4. Test Direct, Corkscrew, Zero-G Waves and Deep-Space Dive. Check roll, motion comfort and planet clearance. Verify 1×, 4×, 16×, seek and restart. Moon remains visible naturally at physically scaled angular size.
 5. Check Earth cloud transparency and atmosphere rim from a distance, Moon surface from 80–100%, and sun halo. Inspect the GLSL shader console for compilation/linking errors on WebGL.

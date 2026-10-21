@@ -1,5 +1,5 @@
 import { attachTelemetryPanel } from './telemetryPanel.ts'
-import type { CameraMode } from '../camera/cameraController.ts'
+import type { CameraMode, FacingDirection } from '../camera/cameraController.ts'
 import type { GameConfig } from '../config/gameConfig.ts'
 import type { JourneyState } from '../simulation/journeyState.ts'
 import type { Telemetry } from '../scene/worldScene.ts'
@@ -14,6 +14,7 @@ export interface HudHandlers {
   togglePlay(): void
   toggleCamera(): void
   turnAround(): void
+  setFacing(direction: FacingDirection): void
   toggleCinematic(): void
   nextSpeed(): void
   seek(progress: number): void
@@ -46,6 +47,10 @@ export class Hud {
   private readonly scrub: HTMLInputElement
   private readonly play: HTMLButtonElement
   private readonly camera: HTMLButtonElement
+  private readonly lookBack: HTMLButtonElement
+  private readonly facingControls: HTMLElement
+  private readonly facingButtons: HTMLButtonElement[]
+  private readonly cameraHint: HTMLElement
   private readonly speed: HTMLButtonElement
   private readonly detachTelemetryPanel: () => void
   private readonly intro: HTMLElement
@@ -62,9 +67,9 @@ export class Hud {
 <div class="destination"><span>✦ &nbsp; NEXT DESTINATION</span><strong>${config.copy.destination}</strong><small id="distance">384,400 km away</small></div>
 <div class="left-panel"><div class="telemetry-top"><div id="telemetry-handle" class="eyebrow telemetry-handle" tabindex="0" role="button" aria-label="Move mission telemetry panel">☷ TELEMETRY <span class="live">● LIVE</span></div><button id="telemetry-toggle" type="button" aria-expanded="true" aria-controls="telemetry-readings">−</button></div><div id="telemetry-readings" class="telemetry-readings"><div class="reading"><span>JOURNEY</span><strong id="percent">0%</strong></div><div class="reading"><span>EARTH DISTANCE</span><strong id="earth-distance">0 km</strong></div><div class="reading"><span>MOON APPARENT SIZE</span><strong id="angular">0.52°</strong></div><div class="reading"><span>SIMULATED TIME</span><strong id="days">DAY 0.00 / ${config.journey.simulatedDays.toFixed(2)}</strong></div><div class="reading"><span>PHASE</span><strong id="phase">DEPARTURE</strong></div><div class="reading"><span>BUILT TRACK</span><strong id="built-track">—</strong></div><div class="reading" hidden><span>RAIL ALLOY</span><strong id="material-balance">500</strong></div><div class="reading" hidden><span>FREIGHT STATUS</span><strong id="shipment-indicator">READY</strong></div><div class="reading"><span>RIDE TIME LEFT</span><strong id="ride-time">3:00</strong></div></div></div>
 <div class="arrival hidden" id="arrival"><span>DESTINATION REACHED</span><h1>${config.copy.arrivalTitle}</h1><p>${config.copy.arrivalBody}</p><p class="build-arrival" id="build-arrival">You have completed the Earth-to-Moon railway.</p><div class="arrival-actions"><button id="restart">RIDE AGAIN</button><button id="replan" class="secondary">BUILD ANOTHER COASTER</button><button id="arrival-freight" class="secondary" hidden>FREIGHT</button></div></div>
-<div class="bottom"><div class="progress-label"><span>EARTH <b>DEPARTURE</b></span><span>384,400 KM <b>MEAN SEPARATION</b></span><span>MOON <b>ARRIVAL</b></span></div><input id="scrub" aria-label="Journey progress" type="range" min="0" max="1000" value="0"/><div class="controls"><button id="play" class="primary" aria-label="Pause journey">Ⅱ <span>PAUSE</span></button><button id="camera" aria-label="Switch to external camera">◉ <span>EXTERNAL VIEW</span></button><button id="look-back" type="button" aria-label="Turn camera 180 degrees">↶ <span>LOOK BACK</span></button><button id="speed" aria-label="Change speed">1× <span>SPEED</span></button><button id="cinematic-toggle" type="button" aria-label="Enter cinematic fullscreen viewing mode">✦ <span>CINEMATIC</span></button><div class="hint">SWIPE TO LOOK 360° <span>·</span> SCROLL TO ZOOM <span>·</span> SPACE TO PAUSE <span>·</span> C TO SWITCH CAMERA</div></div></div>
+<div class="bottom"><div class="progress-label"><span>EARTH <b>DEPARTURE</b></span><span>384,400 KM <b>MEAN SEPARATION</b></span><span>MOON <b>ARRIVAL</b></span></div><input id="scrub" aria-label="Journey progress" type="range" min="0" max="1000" value="0"/><div class="controls"><button id="play" class="primary" aria-label="Pause journey">Ⅱ <span>PAUSE</span></button><button id="camera" aria-label="Switch to third-person camera">◉ <span>THIRD PERSON</span></button><div id="facing-controls" class="facing-controls" role="group" aria-label="First-person facing direction"><button type="button" data-facing="forward" aria-pressed="false">↑ FRONT</button><button type="button" data-facing="left" aria-pressed="false">← LEFT</button><button type="button" data-facing="backward" aria-pressed="true">↓ BACK</button><button type="button" data-facing="right" aria-pressed="false">→ RIGHT</button></div><button id="look-back" type="button" class="hidden" aria-label="Rotate third-person camera 180 degrees">↶ <span>ROTATE 180°</span></button><button id="speed" aria-label="Change speed">1× <span>SPEED</span></button><button id="cinematic-toggle" type="button" aria-label="Enter cinematic fullscreen viewing mode">✦ <span>CINEMATIC</span></button><div class="hint" id="camera-hint">FIRST PERSON · CHOOSE A DIRECTION · SWIPE UP/DOWN TO LOOK</div></div></div>
 <button id="cinematic-exit" type="button" aria-label="Show journey controls">☰ SHOW CONTROLS</button>
-<dialog class="settings-dialog" id="settings" aria-labelledby="settings-title"><h2 id="settings-title">Experience settings</h2><p>Adjust the view for comfort. Your choices are saved on this device.</p><label><input id="setting-motion" type="checkbox"/> Reduced camera motion</label><small>Turns off external camera easing and animated station lighting.</small><label><input id="setting-contrast" type="checkbox"/> Higher interface contrast</label><small>Improves panel and button visibility against the starfield.</small><label><input id="setting-minimal" type="checkbox"/> Cinematic view</label><small>Hide the HUD during travel. Open Options to bring it back.</small><label for="setting-quality">Render quality</label><select id="setting-quality" aria-label="Render quality"><option value="auto">Auto (recommended)</option><option value="performance">Battery saver</option><option value="quality">Highest detail</option></select><small>Changes rendering resolution and the number of visible stars immediately.</small><label><input id="setting-sound" type="checkbox"/> Atmospheric audio</label><small>Original synthesised rail ambience. Plays only after you start the journey.</small><label for="setting-volume">Audio level <output id="setting-volume-value">55%</output></label><input id="setting-volume" type="range" min="0" max="100" value="55" step="5" aria-label="Audio volume"/><div class="settings-help"><strong>CONTROLS</strong><p>Drag / swipe: 360° look around · Look Back / B: turn 180° · C: camera · Space: pause · ← →: seek · Scroll: external zoom · H: cinematic view · ?: options</p></div><button id="settings-close" type="button">RETURN TO JOURNEY</button></dialog>
+<dialog class="settings-dialog" id="settings" aria-labelledby="settings-title"><h2 id="settings-title">Experience settings</h2><p>Adjust the view for comfort. Your choices are saved on this device.</p><label><input id="setting-motion" type="checkbox"/> Reduced camera motion</label><small>Turns off third-person camera easing and animated station lighting.</small><label><input id="setting-contrast" type="checkbox"/> Higher interface contrast</label><small>Improves panel and button visibility against the starfield.</small><label><input id="setting-minimal" type="checkbox"/> Cinematic view</label><small>Hide the HUD during travel. Open Options to bring it back.</small><label for="setting-quality">Render quality</label><select id="setting-quality" aria-label="Render quality"><option value="auto">Auto (recommended)</option><option value="performance">Battery saver</option><option value="quality">Highest detail</option></select><small>Changes rendering resolution and the number of visible stars immediately.</small><label><input id="setting-sound" type="checkbox"/> Atmospheric audio</label><small>Original synthesised rail ambience. Plays only after you start the journey.</small><label for="setting-volume">Audio level <output id="setting-volume-value">55%</output></label><input id="setting-volume" type="range" min="0" max="100" value="55" step="5" aria-label="Audio volume"/><div class="settings-help"><strong>CONTROLS</strong><p>First person: choose front, back, left or right and swipe vertically to look up/down · Third person: drag/swipe to orbit 360° and scroll to zoom · B: rotate 180° · C: switch camera · Space: pause · ← →: seek · H: cinematic view · ?: options</p></div><button id="settings-close" type="button">RETURN TO JOURNEY</button></dialog>
 <div class="intro" id="intro"><div class="intro-card"><div class="eyebrow">${config.copy.introEyebrow}</div><h1>${config.copy.introTitleHtml}</h1><p>${config.copy.introBody}</p><button id="begin">BUILD A SPACE COASTER</button><button id="intro-freight" type="button" hidden>FREIGHT</button><button id="intro-options" type="button">SETTINGS & ACCESSIBILITY</button><small>3 MINUTES AT 1× &nbsp; • &nbsp; DRAG TO LOOK &nbsp; • &nbsp; SWITCH CAMERAS</small></div></div>`
     this.detachTelemetryPanel = attachTelemetryPanel(root)
     this.phase = required(root, '#phase')
@@ -82,6 +87,10 @@ export class Hud {
     this.scrub = required(root, '#scrub')
     this.play = required(root, '#play')
     this.camera = required(root, '#camera')
+    this.lookBack = required(root, '#look-back')
+    this.facingControls = required(root, '#facing-controls')
+    this.facingButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-facing]'))
+    this.cameraHint = required(root, '#camera-hint')
     this.speed = required(root, '#speed')
     this.intro = required(root, '#intro')
     this.arrival = required(root, '#arrival')
@@ -89,7 +98,8 @@ export class Hud {
     required(root, '#intro-options').addEventListener('click', handlers.showOptions)
     this.play.addEventListener('click', handlers.togglePlay)
     this.camera.addEventListener('click', handlers.toggleCamera)
-    required(root, '#look-back').addEventListener('click', handlers.turnAround)
+    this.lookBack.addEventListener('click', handlers.turnAround)
+    this.facingButtons.forEach(button => button.addEventListener('click', () => handlers.setFacing(button.dataset.facing as FacingDirection)))
     required(root, '#cinematic-toggle').addEventListener('click', handlers.toggleCinematic)
     required(root, '#cinematic-exit').addEventListener('click', handlers.toggleCinematic)
     this.speed.addEventListener('click', handlers.nextSpeed)
@@ -177,15 +187,19 @@ export class Hud {
     this.play.innerHTML = state.playing ? 'Ⅱ <span>PAUSE</span>' : '▶ <span>RESUME</span>'
     this.play.setAttribute('aria-label', state.playing ? 'Pause journey' : 'Resume journey')
     this.speed.innerHTML = `${state.speed}× <span>SPEED</span>`
-    this.renderCamera(telemetry.cameraMode)
+    this.renderCamera(telemetry.cameraMode, telemetry.cameraFacing)
     this.intro.classList.toggle('hidden', state.begun)
     this.arrival.classList.toggle('hidden', state.progress < 0.995)
   }
 
-  private renderCamera(mode: CameraMode) {
+  private renderCamera(mode: CameraMode, facing: FacingDirection) {
     const external = mode === 'external'
-    this.camera.innerHTML = external ? '◉ <span>FIRST-PERSON VIEW</span>' : '◉ <span>EXTERNAL VIEW</span>'
-    this.camera.setAttribute('aria-label', external ? 'Switch to first-person camera' : 'Switch to external camera')
+    this.camera.innerHTML = external ? '◉ <span>FIRST PERSON</span>' : '◉ <span>THIRD PERSON</span>'
+    this.camera.setAttribute('aria-label', external ? 'Switch to first-person camera' : 'Switch to third-person camera')
+    this.facingControls.classList.toggle('hidden', external)
+    this.lookBack.classList.toggle('hidden', !external)
+    this.cameraHint.textContent = external ? 'THIRD PERSON · DRAG / SWIPE TO ORBIT 360° · SCROLL TO ZOOM' : 'FIRST PERSON · CHOOSE A DIRECTION · SWIPE UP/DOWN TO LOOK'
+    this.facingButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.facing === facing)))
   }
 
 }

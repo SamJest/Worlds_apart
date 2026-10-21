@@ -6,7 +6,7 @@ The attached add-on pack (`Worlds_Apart_Next_Upgrade_Addon_v1_0.zip`) is the new
 
 ### Next priorities
 
-1. **Completed in Round 09:** tested geographic selectors, selected-site guideway endpoints, body-local markers and mobile 360 regression coverage.
+1. **Completed:** tested geographic selectors, selected-site guideway endpoints, body-local markers, track-following first person and mobile third-person orbit regression coverage.
 2. **P1:** accurate globe texture and visible region of departure. Use appropriately licensed, pre-sized imagery and verify UV and lat/lon conventions. No building-level promises.
 3. **P1:** robust adaptive near-planet rail connectors following axial rotation; coherent launch heading and safe surface arrival with terrain-aware altitude when available.
 4. **P1:** freehand route drawing, banked spirals/loops, close flybys, track inspection and great visual ride choreography. No economy.

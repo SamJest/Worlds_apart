@@ -237,3 +237,11 @@ button:focus-visible,input:focus-visible{outline:3px solid #b5f4ff;outline-offse
 .site-picker-presets button,.site-picker-actions button{flex:1;min-height:42px;border-radius:5px;border:1px solid #688fa4;background:#183950;color:#d9f1fc;padding:8px;font-size:11px;font-weight:700}
 .site-picker-actions .site-picker-confirm {background:#b2f1fa;color:#103041;border-color:#b2f1fa;flex:2}
 @media(max-width:390px){.site-control-buttons{grid-template-columns:1fr}.site-picker-card{padding:12px}.site-picker-coordinates{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Camera modes: explicit third-person orbit and fixed first-person facings. */
+.facing-controls{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid #7195ac55;border-radius:8px;background:#071b2bd9}
+.facing-controls button{min-height:42px;padding:8px 9px;font-size:9px;letter-spacing:.04em}
+.facing-controls button[aria-pressed=true]{color:#092536;background:#a2e6f1;border-color:#a2e6f1}
+#camera{min-width:132px}
+@media(max-width:780px){.left-panel{bottom:195px}.facing-controls{order:-1;flex-basis:100%;justify-content:center}.facing-controls button{flex:1;max-width:92px}.controls #camera{flex:1.6}}
+@media(max-width:420px){#camera span{display:inline}.facing-controls button{font-size:9px;padding:7px 4px}.bottom{padding-bottom:max(14px,env(safe-area-inset-bottom))}}

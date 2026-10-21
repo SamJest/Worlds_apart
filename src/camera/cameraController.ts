@@ -4,10 +4,21 @@ import { wrapYaw } from './viewAngles.ts'
 import { EARTH_RADIUS, MOON_RADIUS } from '../simulation/astronomy.ts'
 
 export type CameraMode = 'first-person' | 'external'
+export type FacingDirection = 'forward' | 'right' | 'backward' | 'left'
+
+const FACING_YAW: Record<FacingDirection, number> = {
+  forward: 0,
+  right: Math.PI / 2,
+  backward: Math.PI,
+  left: -Math.PI / 2,
+}
 
 export class CameraController {
+  private readonly camera: THREE.PerspectiveCamera
+  private readonly config: GameConfig['camera']
   private modeValue: CameraMode = 'first-person'
-  private yaw = 0
+  private facingValue: FacingDirection = 'backward'
+  private orbitYaw = Math.PI
   private pitch = 0
   private orbitDistance: number
   private snapNextCamera = false
@@ -20,24 +31,41 @@ export class CameraController {
   private readonly origin = new THREE.Vector3()
   private readonly up = new THREE.Vector3(0, 1, 0)
 
-  constructor(private readonly camera: THREE.PerspectiveCamera, private readonly config: GameConfig['camera']) {
+  constructor(camera: THREE.PerspectiveCamera, config: GameConfig['camera']) {
+    this.camera = camera
+    this.config = config
     this.orbitDistance = config.externalDistanceWorldUnits
   }
 
   get mode(): CameraMode { return this.modeValue }
+  get facing(): FacingDirection { return this.facingValue }
 
   toggleMode() {
     this.modeValue = this.modeValue === 'first-person' ? 'external' : 'first-person'
-    // Preserve head direction when moving between views.
     this.snapNextCamera = true
   }
 
   look(deltaX: number, deltaY: number) {
-    this.yaw = wrapYaw(this.yaw - deltaX * this.config.pointerSensitivity)
+    if (this.modeValue === 'external') this.orbitYaw = wrapYaw(this.orbitYaw - deltaX * this.config.pointerSensitivity)
     this.pitch = THREE.MathUtils.clamp(this.pitch + deltaY * this.config.pitchSensitivity, -this.config.maximumPitchRadians, this.config.maximumPitchRadians)
   }
 
-  turnAround() { this.yaw = wrapYaw(this.yaw + Math.PI); this.snapNextCamera = true }
+  setFacing(direction: FacingDirection) {
+    this.facingValue = direction
+    this.snapNextCamera = true
+  }
+
+  turnAround() {
+    if (this.modeValue === 'first-person') this.setFacing(this.facingValue === 'backward' ? 'forward' : 'backward')
+    else { this.orbitYaw = wrapYaw(this.orbitYaw + Math.PI); this.snapNextCamera = true }
+  }
+
+  beginRide() {
+    this.facingValue = 'backward'
+    this.orbitYaw = Math.PI
+    this.pitch = 0
+    this.snapNextCamera = true
+  }
 
   zoom(direction: number) {
     this.orbitDistance = THREE.MathUtils.clamp(this.orbitDistance * (1 + Math.sign(direction) * this.config.zoomStep), this.config.minimumExternalDistanceWorldUnits, this.config.maximumExternalDistanceWorldUnits)
@@ -53,8 +81,8 @@ export class CameraController {
     if (this.modeValue === 'external') {
       const elevation = THREE.MathUtils.clamp(0.28 + this.pitch, -1.3, 1.3)
       const horizontal = this.orbitDistance * Math.cos(elevation)
-      this.desired.copy(point).addScaledVector(tangent, -horizontal * Math.cos(this.yaw))
-        .addScaledVector(this.side, -horizontal * Math.sin(this.yaw))
+      this.desired.copy(point).addScaledVector(tangent, -horizontal * Math.cos(this.orbitYaw))
+        .addScaledVector(this.side, -horizontal * Math.sin(this.orbitYaw))
         .addScaledVector(this.viewUp, this.orbitDistance * Math.sin(elevation))
       this.keepOutside(this.desired, this.origin, EARTH_RADIUS)
       this.keepOutside(this.desired, moonPosition, MOON_RADIUS)
@@ -70,8 +98,9 @@ export class CameraController {
     this.desired.copy(point).addScaledVector(tangent, this.config.firstPersonForwardWorldUnits)
       .addScaledVector(this.viewUp, this.config.firstPersonHeightWorldUnits)
     this.camera.position.copy(this.desired)
-    this.direction.copy(tangent).multiplyScalar(Math.cos(this.yaw))
-      .addScaledVector(this.side, Math.sin(this.yaw))
+    const facingYaw = FACING_YAW[this.facingValue]
+    this.direction.copy(tangent).multiplyScalar(Math.cos(facingYaw))
+      .addScaledVector(this.side, Math.sin(facingYaw))
       .multiplyScalar(Math.cos(this.pitch))
       .addScaledVector(this.viewUp, Math.sin(this.pitch)).normalize()
     this.camera.lookAt(this.target.copy(this.desired).add(this.direction))

@@ -1,9 +1,7 @@
 import * as THREE from 'three'
 import type { GameConfig } from '../config/gameConfig.ts'
 import type { EarthMoonRoute } from '../simulation/astronomy.ts'
-
-const UP = new THREE.Vector3(0, 1, 0)
-const FORWARD = new THREE.Vector3(0, 0, 1)
+import { TrackOrientation } from './trackOrientation.ts'
 
 /** Entire route is still visualised at astronomical scale; the magnetic guideway is fictional. */
 export function createRailway(route: EarthMoonRoute, config: GameConfig) {
@@ -21,14 +19,15 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   const railPoints: [THREE.Vector3[], THREE.Vector3[]] = [[], []]
   const tangent = new THREE.Vector3()
   const side = new THREE.Vector3()
+  const trackUp = new THREE.Vector3()
   const point = new THREE.Vector3()
+  const orientation = new TrackOrientation(route.curve, railConfig.curveSamples)
   for (let index = 0; index <= railConfig.curveSamples; index++) {
     const progress = index / railConfig.curveSamples
     route.curve.getPoint(progress, point)
-    route.curve.getTangent(progress, tangent).normalize()
-    side.crossVectors(tangent, UP).normalize()
+    orientation.frameAt(progress, tangent, trackUp, side)
     for (let rail = 0; rail < 2; rail++) {
-      railPoints[rail].push(point.clone().addScaledVector(side, (rail ? 1 : -1) * gauge(progress) * 0.5).addScaledVector(UP, -0.006))
+      railPoints[rail].push(point.clone().addScaledVector(side, (rail ? 1 : -1) * gauge(progress) * 0.5).addScaledVector(trackUp, -0.006))
     }
   }
   for (const points of railPoints) {
@@ -47,9 +46,9 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   for (let index = 0; index < railConfig.sleeperCount; index++) {
     const progress = (index + 0.5) / railConfig.sleeperCount
     route.curve.getPoint(progress, point)
-    route.curve.getTangent(progress, tangent).normalize()
-    dummy.position.copy(point).addScaledVector(UP, -0.013)
-    dummy.quaternion.setFromUnitVectors(FORWARD, tangent)
+    orientation.frameAt(progress, tangent, trackUp, side)
+    dummy.position.copy(point).addScaledVector(trackUp, -0.013)
+    orientation.quaternionAt(progress, dummy.quaternion)
     dummy.scale.set(gauge(progress) + 0.03, 1, 1)
     dummy.updateMatrix()
     sleepers.setMatrixAt(index, dummy.matrix)
@@ -92,10 +91,10 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   const beacons: THREE.Mesh[] = []
   for (const [index, progress] of [0.014, 0.982].entries()) {
     route.curve.getPoint(progress, point)
-    route.curve.getTangent(progress, tangent).normalize()
+    orientation.frameAt(progress, tangent, trackUp, side)
     const mesh = new THREE.Mesh(beaconGeometry, beaconMaterials[index])
     mesh.position.copy(point)
-    mesh.quaternion.setFromUnitVectors(FORWARD, tangent)
+    orientation.quaternionAt(progress, mesh.quaternion)
     group.add(mesh)
     beacons.push(mesh)
   }
@@ -105,7 +104,7 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   for (const anchor of route.constructionAnchors ?? []) {
     const marker = new THREE.Mesh(beaconGeometry, beaconMaterials[1])
     marker.position.copy(anchor)
-    marker.quaternion.setFromUnitVectors(FORWARD, route.curve.getTangent(findNearestCurveFraction(route.curve, anchor)))
+    orientation.quaternionAt(findNearestCurveFraction(route.curve, anchor), marker.quaternion)
     marker.scale.setScalar(1.5)
     group.add(marker)
     beacons.push(marker)
@@ -123,9 +122,9 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
           // u is arc-length fraction: near sleepers stay evenly spaced at bends.
           const t = route.curve.getUtoTmapping(lengthFraction, lengthFraction * routeLengthWorldUnits)
           route.curve.getPoint(t, point)
-          route.curve.getTangent(t, tangent).normalize()
-          dummy.position.copy(point).addScaledVector(UP, -0.013)
-          dummy.quaternion.setFromUnitVectors(FORWARD, tangent)
+          orientation.frameAt(t, tangent, trackUp, side)
+          dummy.position.copy(point).addScaledVector(trackUp, -0.013)
+          orientation.quaternionAt(t, dummy.quaternion)
           dummy.scale.set(gauge(t) + 0.03, 1, 1)
         }
         dummy.updateMatrix()
@@ -142,9 +141,9 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
           } else {
             const t = route.curve.getUtoTmapping(fraction, fraction * routeLengthWorldUnits)
             route.curve.getPoint(t, point)
-            route.curve.getTangent(t, tangent).normalize()
+            orientation.frameAt(t, tangent, trackUp, side)
             dummy.position.copy(point)
-            dummy.quaternion.setFromUnitVectors(FORWARD, tangent)
+            orientation.quaternionAt(t, dummy.quaternion)
             dummy.scale.setScalar(1)
           }
           dummy.updateMatrix()

@@ -31,7 +31,7 @@
 | Mobile geographic launch and arrival | PASS | 390×844 touch emulation tapped the Earth globe, entered Colchester, selected both lunar presets, rode a direct route to the far side, reached arrival and restored the saved sites after reload. |
 | South hemisphere, poles and dateline mathematics | PASS | Pure round-trip tests cover ±90°, −35° latitude and both ±179.99° longitude; an extra mobile check accepted 35°S, 179.99°E with zero horizontal overflow. |
 | Portrait and landscape picker layout | PASS | Chromium at 390×844 and 844×390; controls remained scrollable/reachable and no horizontal overflow was present. |
-| Existing 360 camera, HUD and mobile gestures | PASS | Regression smoke covered look-back, touch drag, camera switching, cinematic exit and draggable/persistent telemetry. |
+| Camera, HUD and mobile gestures | PASS | Current regression smoke covers four first-person facing choices, vertical look, 360° third-person orbit, camera switching, cinematic exit and draggable/persistent telemetry. |
 | Economy absent from the playable flow | PASS | Browser run began with zero materials, built every style for free and confirmed the freight entry point stayed hidden. Dormant legacy modules/tests remain in the repository but are not re-enabled. |
 | Physical mobile device and long thermal/performance soak | NOT TESTED | Touch/mobile browser emulation was used; a physical midrange-device pass remains useful. |
 | Dynamic rotating terminal rail | PARTIAL / KNOWN | Body-local markers rotate correctly, but the inertial track endpoint is not rebuilt continuously after departure. |

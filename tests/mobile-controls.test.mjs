@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { wrapYaw } from '../src/camera/viewAngles.ts'
 import { clampPanelPosition } from '../src/ui/telemetryPanel.ts'
 
-test('360° horizontal look wraps without a forward-only clamp', () => {
+test('third-person horizontal orbit wraps without a forward-only clamp', () => {
   const epsilon = 1e-9
   assert.ok(Math.abs(wrapYaw(2 * Math.PI)) < epsilon)
   assert.ok(Math.abs(wrapYaw(-2 * Math.PI)) < epsilon)

@@ -62,10 +62,11 @@ export class WorldsApartApp {
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
       toggleCamera: () => this.toggleCamera(),
       turnAround: () => this.camera.turnAround(),
+      setFacing: direction => this.camera.setFacing(direction),
       toggleCinematic: () => this.setPreferences(this.hud.toggleMinimalHud()),
       nextSpeed: () => this.dispatch({ type: 'next-speed' }),
       seek: progress => this.dispatch({ type: 'seek', progress }),
-      restart: () => this.dispatch({ type: 'restart' }),
+      restart: () => this.restartRide(),
       preferencesChanged: value => this.setPreferences(value),
     }, this.preferences)
     this.planner = new RoutePlannerUi(root, this.config.journey.arrivalAltitudeKm, (days, design, sites) => this.beginPlanned(days, design, sites), {
@@ -89,6 +90,7 @@ export class WorldsApartApp {
     this.world = new WorldScene(this.hud.viewport, this.route, config)
     this.world.setQuality(this.preferences.quality)
     this.camera = new CameraController(this.world.camera, config.camera)
+    this.camera.beginRide()
     this.input = new InputController(this.world.renderer.domElement, {
       canInteract: () => this.state.begun && !this.planner.isOpen && !this.freight.isOpen,
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
@@ -130,6 +132,7 @@ export class WorldsApartApp {
     if (!constructed.valid) return false
     // Unlimited creative mode: all track designs are free, including repeat rides.
     this.route = constructed.route
+    this.camera.beginRide()
     this.world.setRoute(this.route)
     this.state = createInitialJourneyState(this.config.journey)
     this.hud.setJourneyDays(days)
@@ -243,6 +246,11 @@ export class WorldsApartApp {
     this.state = createInitialJourneyState(this.config.journey)
     this.audio.reset()
     this.planner.open()
+  }
+
+  private restartRide() {
+    this.camera.beginRide()
+    this.dispatch({ type: 'restart' })
   }
 
   private toggleCamera() { this.camera.toggleMode() }

@@ -15,9 +15,9 @@ Open the local address printed by Vite (usually `http://localhost:5173`). Choose
 
 ## Controls and testing
 
-- Drag on the scene to look around (touch drag works); switch between first-person and external cameras with the button or `C`.
+- First person starts facing back toward the departure planet. Use the visible **Front / Left / Back / Right** buttons to choose a direction and drag vertically to look up or down. Switch to **Third Person** with the clearly labelled button or `C`, then drag or swipe to orbit 360° and scroll to zoom.
 - Click **Pause/Resume** or press Space. Use **Speed** to cycle 1×, 4×, 16×. The timeline can be dragged to inspect any point. Left/right arrow keys step by 1%.
-- In external view, scroll to change follow distance. Press `H` for a cinematic view without the HUD; press `H` again to restore it. Press `?` or use the top-right Options button for reduced motion, higher contrast, and Auto/Battery saver/Highest detail rendering. Options pause the ride, and preferences are saved on the current device. At 100%, the arrival card appears; **Ride again** restarts.
+- In third-person view, scroll to change follow distance. Press `H` for a cinematic view without the HUD; press `H` again to restore it. Press `?` or use the top-right Options button for reduced motion, higher contrast, and Auto/Battery saver/Highest detail rendering. Options pause the ride, and preferences are saved on the current device. At 100%, the arrival card appears; **Ride again** restarts facing the departure planet.
 - For an end-to-end check, begin the ride, switch cameras, scrub to about 50%, then run at 16× to arrival. At departure the Moon is about 0.52° wide, and it grows continuously on approach. Earth recedes behind the carriage.
 
 ## Model and creative premise
