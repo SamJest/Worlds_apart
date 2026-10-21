@@ -11,6 +11,7 @@ import { createFreightInfrastructure } from './freightInfrastructure.ts'
 import type { FreightState } from '../simulation/freightEconomy.ts'
 import type { FleetState } from '../simulation/fleetOperations.ts'
 import type { LocalRailNetwork } from '../simulation/localRailNetwork.ts'
+import { coasterBankRadians } from '../simulation/rideFeel.ts'
 
 export interface Telemetry {
   progress: number
@@ -33,7 +34,12 @@ export class WorldScene {
   private readonly freightInfrastructure
   private readonly point = new THREE.Vector3()
   private readonly tangent = new THREE.Vector3()
-  private readonly forward = new THREE.Vector3(0, 0, 1)
+  private readonly gravityUp = new THREE.Vector3(0, 1, 0)
+  private readonly frameUp = new THREE.Vector3()
+  private readonly frameSide = new THREE.Vector3()
+  private readonly aheadTangent = new THREE.Vector3()
+  private readonly frameMatrix = new THREE.Matrix4()
+  private readonly frameBank = new THREE.Quaternion()
   private quality: QualityPreset = 'auto'
 
   constructor(viewport: HTMLElement, private route: EarthMoonRoute, private readonly config: GameConfig) {
@@ -60,11 +66,26 @@ export class WorldScene {
     this.route.curve.getPoint(routeT, this.point)
     this.route.curve.getTangent(routeT, this.tangent).normalize()
     this.carriage.group.position.copy(this.point)
-    this.carriage.group.quaternion.setFromUnitVectors(this.forward, this.tangent)
+    // A real ride banks through curves; keep a stable rolling frame instead of
+    // independently rotating the carriage and camera from their forward vectors.
+    this.frameUp.copy(this.gravityUp).addScaledVector(this.tangent, -this.tangent.y)
+    if (this.frameUp.lengthSq() < 0.000001) {
+      this.frameUp.set(0, 0, 1).addScaledVector(this.tangent, -this.tangent.z)
+    }
+    this.frameUp.normalize()
+    this.frameSide.crossVectors(this.frameUp, this.tangent).normalize()
+    this.route.curve.getTangent(Math.min(1, routeT + 0.002), this.aheadTangent).normalize()
+    const bank = coasterBankRadians(this.aheadTangent.dot(this.frameSide), reducedMotion)
+    this.frameBank.setFromAxisAngle(this.tangent, bank)
+    this.frameUp.applyQuaternion(this.frameBank)
+    this.frameSide.crossVectors(this.frameUp, this.tangent).normalize()
+    this.frameMatrix.makeBasis(this.frameSide, this.frameUp, this.tangent)
+    this.carriage.group.quaternion.setFromRotationMatrix(this.frameMatrix)
     this.bodies.update(progress, this.route.simulatedDays)
     this.railway.update(progress, reducedMotion)
     if (freight && network) this.freightInfrastructure.update(freight, network, fleet)
-    cameraController.apply(this.point, this.tangent, this.bodies.moon.position, elapsedSeconds, reducedMotion)
+    cameraController.apply(this.point, this.tangent, this.bodies.moon.position, elapsedSeconds, reducedMotion, this.frameUp)
+    this.environment.update(this.camera.position, elapsedSeconds, reducedMotion)
     const moonDistance = Math.max(MOON_RADIUS, this.bodies.moon.position.distanceTo(this.camera.position))
     return {
       progress,
@@ -83,6 +104,7 @@ export class WorldScene {
     this.route = route
     this.railway = createRailway(route, this.config)
     this.scene.add(this.railway.group)
+    this.railway.setQuality(this.quality)
   }
 
   render() { this.renderer.render(this.scene, this.camera) }
@@ -90,6 +112,7 @@ export class WorldScene {
   setQuality(quality: QualityPreset) {
     this.quality = quality
     this.environment.setQuality(quality)
+    this.railway.setQuality(quality)
     this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)
   }
 

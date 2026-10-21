@@ -6,7 +6,7 @@ export function createCarriage() {
   const geometries: THREE.BufferGeometry[] = []
   const shell = new THREE.MeshStandardMaterial({ color: 0xaac1c7, metalness: 0.66, roughness: 0.28 })
   const frame = new THREE.MeshStandardMaterial({ color: 0x162e43, metalness: 0.62, roughness: 0.35 })
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0x65b9d1, metalness: 0.02, roughness: 0.08, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x65b9d1, metalness: 0.02, roughness: 0.08, transparent: true, opacity: 0.10, depthWrite: false, side: THREE.DoubleSide })
   const lights = new THREE.MeshBasicMaterial({ color: 0x9defff })
   const seat = new THREE.MeshStandardMaterial({ color: 0x2e556b, metalness: 0.05, roughness: 0.8 })
   const materials = [shell, frame, glass, lights, seat]
@@ -21,7 +21,10 @@ export function createCarriage() {
   // Observation deck, structure and overhead canopy. Never fill the cabin with an opaque box:
   // the first-person camera sits at y=.043, z=.017 and must look through the front window.
   box(0.066, 0.008, 0.150, 0, 0.018, 0, shell)
-  box(0.059, 0.003, 0.105, 0, 0.054, -0.005, shell)
+  // Panoramic glazed canopy allows a full first-person sky view.
+  box(0.057, 0.002, 0.105, 0, 0.054, -0.005, glass)
+  box(0.058, 0.004, 0.003, 0, 0.054, -0.057, shell)
+  box(0.058, 0.004, 0.003, 0, 0.054, 0.045, shell)
   box(0.051, 0.003, 0.105, 0, 0.025, -0.005, frame)
   for (const x of [-0.029, 0.029]) {
     for (const z of [-0.055, -0.002, 0.045]) box(0.003, 0.027, 0.003, x, 0.040, z, frame)
@@ -49,7 +52,12 @@ export function createCarriage() {
   // Illuminated leading edge makes orientation legible from the external camera.
   box(0.048, 0.006, 0.008, 0, 0.023, 0.075, lights)
   box(0.022, 0.006, 0.020, 0, 0.014, 0.087, frame)
-  box(0.035, 0.002, 0.065, 0, 0.053, -0.005, lights)
+  for (const x of [-0.025, 0.025]) {
+    box(0.002, 0.002, 0.118, x, 0.055, -0.005, lights)
+    box(0.004, 0.003, 0.12, x, 0.021, 0, lights)
+  }
+  // Rear glass is kept clear: looking back at Earth is a primary player action.
+  box(0.028, 0.004, 0.004, 0, 0.026, -0.059, lights)
   const podLight = new THREE.PointLight(0x85dfff, 1.25, 0.34)
   podLight.position.set(0, 0.032, 0.062)
   group.add(podLight)

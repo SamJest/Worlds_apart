@@ -9,9 +9,9 @@ const FORWARD = new THREE.Vector3(0, 0, 1)
 export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   const group = new THREE.Group()
   const geometries: THREE.BufferGeometry[] = []
-  const railMaterial = new THREE.MeshStandardMaterial({ color: 0x9ab7ca, metalness: 0.75, roughness: 0.3, emissive: 0x1a4b6b, emissiveIntensity: 0.35 })
-  const spineMaterial = new THREE.MeshBasicMaterial({ color: 0x123d61 })
-  const sleeperMaterial = new THREE.MeshStandardMaterial({ color: 0x416575, metalness: 0.65, roughness: 0.38 })
+  const railMaterial = new THREE.MeshStandardMaterial({ color: 0xb4d5e5, metalness: 0.8, roughness: 0.23, emissive: 0x2f8bbc, emissiveIntensity: 0.52 })
+  const spineMaterial = new THREE.MeshBasicMaterial({ color: 0x1b547b })
+  const sleeperMaterial = new THREE.MeshStandardMaterial({ color: 0x517586, metalness: 0.70, roughness: 0.26, emissive: 0x113f55, emissiveIntensity: 0.18 })
   const beaconMaterials = [
     new THREE.MeshBasicMaterial({ color: 0x67d9fc, transparent: true, opacity: 0.48, depthWrite: false }),
     new THREE.MeshBasicMaterial({ color: 0xffd6a1, transparent: true, opacity: 0.48, depthWrite: false }),
@@ -65,6 +65,25 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
   nearby.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
   nearby.frustumCulled = false // its instances move; a cached bounding sphere is not meaningful
   group.add(nearby)
+
+  // Receding luminous hoops supply speed and depth cues at astronomical scale.
+  // They are fictional adaptive-rail hardware, never a physical space bridge.
+  const gateCount = 22
+  const gateGeometry = new THREE.TorusGeometry(0.088, 0.0016, 5, 30)
+  geometries.push(gateGeometry)
+  const gateMaterial = new THREE.MeshBasicMaterial({
+    color: 0xb0edff, transparent: true, opacity: 0.22,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  })
+  const gates = new THREE.InstancedMesh(gateGeometry, gateMaterial, gateCount)
+  gates.frustumCulled = false
+  gates.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  for (let index = 0; index < gateCount; index++) {
+    gates.setColorAt(index, new THREE.Color(index % 5 === 0 ? 0xeebdff : index % 3 === 0 ? 0x89dfff : 0x6babe1))
+  }
+  if (gates.instanceColor) gates.instanceColor.needsUpdate = true
+  group.add(gates)
+  let lowDetail = false
   const halfWindowWorldUnits = 5.4
   const routeLengthWorldUnits = route.lengthKm / 1000
 
@@ -113,10 +132,36 @@ export function createRailway(route: EarthMoonRoute, config: GameConfig) {
         nearby.setMatrixAt(index, dummy.matrix)
       }
       nearby.instanceMatrix.needsUpdate = true
+      if (gates.visible) {
+        for (let i = 0; i < gates.count; i++) {
+          // Along the track's arc length, so portal spacing is stable through loops.
+          const offset = (i - 8) * (lowDetail ? 0.85 : 0.44)
+          const fraction = progress + offset / routeLengthWorldUnits
+          if (fraction < 0 || fraction > 1) {
+            dummy.scale.setScalar(0)
+          } else {
+            const t = route.curve.getUtoTmapping(fraction, fraction * routeLengthWorldUnits)
+            route.curve.getPoint(t, point)
+            route.curve.getTangent(t, tangent).normalize()
+            dummy.position.copy(point)
+            dummy.quaternion.setFromUnitVectors(FORWARD, tangent)
+            dummy.scale.setScalar(1)
+          }
+          dummy.updateMatrix()
+          gates.setMatrixAt(i, dummy.matrix)
+        }
+        gates.instanceMatrix.needsUpdate = true
+      }
       const pulse = reducedMotion ? 1 : 0.88 + 0.12 * Math.sin(progress * 210)
       for (const material of beaconMaterials) material.opacity = 0.48 * pulse
     },
+    setQuality(quality: 'auto' | 'performance' | 'quality') {
+      lowDetail = quality === 'performance'
+      gates.count = lowDetail ? 10 : gateCount
+      gateMaterial.opacity = lowDetail ? 0.10 : 0.22
+    },
     dispose() {
+      gateMaterial.dispose()
       geometries.forEach(geometry => geometry.dispose())
       railMaterial.dispose()
       spineMaterial.dispose()

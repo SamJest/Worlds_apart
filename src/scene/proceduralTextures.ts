@@ -64,6 +64,22 @@ export function createBodyTexture(kind: 'earth' | 'moon', seed: number, anisotro
       context.fillStyle = `rgba(${value},${value},${value},${0.02 + random() * 0.14})`
       context.fillRect(random() * 1024, random() * 512, 1 + random() * 5, 1 + random() * 5)
     }
+    // Dark lunar maria help the Moon read as a real world rather than a uniform grey ball.
+    for (const [mx, my, rx, ry] of [
+      [520, 222, 122, 48], [615, 286, 75, 54], [410, 260, 65, 45],
+      [735, 203, 71, 32], [300, 188, 55, 45], [555, 337, 100, 38],
+    ]) {
+      context.fillStyle = 'rgba(51,51,53,.30)'
+      context.beginPath()
+      context.ellipse(mx, my, rx, ry, random() * 0.4, 0, Math.PI * 2)
+      context.fill()
+      for (let j=0; j<100; j++) {
+        const x = mx + (random() * 2 - 1) * rx
+        const y = my + (random() * 2 - 1) * ry
+        context.fillStyle = 'rgba(25,26,28,.04)'
+        context.fillRect(x, y, 3 + random() * 9, 2 + random() * 5)
+      }
+    }
     for (let index = 0; index < 1050; index++) {
       const x = random() * 1024
       const y = random() * 512

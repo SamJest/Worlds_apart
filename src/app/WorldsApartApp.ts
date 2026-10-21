@@ -61,6 +61,7 @@ export class WorldsApartApp {
       togglePlay: () => this.dispatch({ type: 'toggle-play' }),
       toggleCamera: () => this.toggleCamera(),
       turnAround: () => this.camera.turnAround(),
+      toggleCinematic: () => this.setPreferences(this.hud.toggleMinimalHud()),
       nextSpeed: () => this.dispatch({ type: 'next-speed' }),
       seek: progress => this.dispatch({ type: 'seek', progress }),
       restart: () => this.dispatch({ type: 'restart' }),

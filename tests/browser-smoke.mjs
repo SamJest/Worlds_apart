@@ -37,12 +37,22 @@ async function seek(page, value) {
   }, value)
 }
 
+function collectRuntimeFailures(page) {
+  const failures = []
+  page.on('pageerror', error => failures.push(`pageerror: ${error.message}`))
+  page.on('console', message => {
+    if (/THREE\.WebGLProgram|shader.*(?:error|fail)|webgl.*(?:error|fail)|context_lost|program.*(?:invalid|fail)/i.test(message.text())) {
+      failures.push(`graphics console: ${message.text()}`)
+    }
+  })
+  return failures
+}
+
 async function runCreativeDesktop(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   await zeroMaterials(context)
   const page = await context.newPage()
-  const pageErrors = []
-  page.on('pageerror', error => pageErrors.push(error.message))
+  const pageErrors = collectRuntimeFailures(page)
   await page.goto(`${baseUrl}/?debug=1`, { waitUntil: 'domcontentloaded' })
   await page.locator('#begin').waitFor()
   assert.equal(await page.locator('canvas').count(), 1)
@@ -112,8 +122,7 @@ async function runCreativeMobile(browser) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
   await zeroMaterials(context)
   const page = await context.newPage()
-  const pageErrors = []
-  page.on('pageerror', error => pageErrors.push(error.message))
+  const pageErrors = collectRuntimeFailures(page)
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
   await page.locator('#begin').click()
   await page.locator('[data-construction-preset="corkscrew"]').click()
@@ -139,6 +148,12 @@ async function runCreativeMobile(browser) {
   await page.mouse.up()
   const dragged = await panel.boundingBox()
   assert.ok(dragged && dragged.x > initial.x + 20)
+
+  // Mobile cinematic mode must be reversible without a keyboard or an options dialog.
+  await page.locator('#cinematic-toggle').click()
+  assert.equal(await page.locator('.bottom').isVisible(), false)
+  await page.locator('#cinematic-exit').click()
+  assert.equal(await page.locator('.bottom').isVisible(), true)
 
   // Pause the timeline so canvas changes are camera movement, then exercise swipe, look-back and mode switching.
   await page.locator('#play').click()

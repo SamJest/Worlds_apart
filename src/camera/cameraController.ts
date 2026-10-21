@@ -28,8 +28,7 @@ export class CameraController {
 
   toggleMode() {
     this.modeValue = this.modeValue === 'first-person' ? 'external' : 'first-person'
-    this.yaw = 0
-    this.pitch = 0
+    // Preserve head direction when moving between views.
     this.snapNextCamera = true
   }
 
@@ -44,8 +43,9 @@ export class CameraController {
     this.orbitDistance = THREE.MathUtils.clamp(this.orbitDistance * (1 + Math.sign(direction) * this.config.zoomStep), this.config.minimumExternalDistanceWorldUnits, this.config.maximumExternalDistanceWorldUnits)
   }
 
-  apply(point: THREE.Vector3, tangent: THREE.Vector3, moonPosition: THREE.Vector3, elapsedSeconds = 1 / 60, reducedMotion = false) {
-    this.viewUp.copy(this.up).addScaledVector(tangent, -this.up.dot(tangent))
+  apply(point: THREE.Vector3, tangent: THREE.Vector3, moonPosition: THREE.Vector3, elapsedSeconds = 1 / 60, reducedMotion = false, rideUp?: THREE.Vector3) {
+    const initialUp = this.modeValue === 'first-person' && rideUp ? rideUp : this.up
+    this.viewUp.copy(initialUp).addScaledVector(tangent, -initialUp.dot(tangent))
     if (this.viewUp.lengthSq() < 0.0001) this.viewUp.set(0, 0, 1).addScaledVector(tangent, -tangent.z)
     this.viewUp.normalize()
     this.side.crossVectors(this.viewUp, tangent).normalize()

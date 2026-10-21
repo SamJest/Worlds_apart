@@ -14,8 +14,14 @@ export class InputController {
   private activePointerId: number | null = null
   private lastX = 0
   private lastY = 0
+  private activePointerType = 'mouse'
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly handlers: InputHandlers) {
+  private readonly canvas: HTMLCanvasElement
+  private readonly handlers: InputHandlers
+
+  constructor(canvas: HTMLCanvasElement, handlers: InputHandlers) {
+    this.canvas = canvas
+    this.handlers = handlers
     canvas.addEventListener('pointerdown', this.pointerDown)
     canvas.addEventListener('pointerup', this.pointerUp)
     canvas.addEventListener('pointercancel', this.pointerUp)
@@ -37,7 +43,9 @@ export class InputController {
 
   private readonly pointerDown = (event: PointerEvent) => {
     if (this.activePointerId !== null) return
+    if (!this.handlers.canInteract()) return
     this.activePointerId = event.pointerId
+    this.activePointerType = event.pointerType
     this.lastX = event.clientX
     this.lastY = event.clientY
     this.canvas.setPointerCapture(event.pointerId)
@@ -47,9 +55,15 @@ export class InputController {
 
   private readonly pointerMove = (event: PointerEvent) => {
     if (event.pointerId !== this.activePointerId) return
-    this.handlers.look(event.clientX - this.lastX, event.clientY - this.lastY)
+    // Always use the previous pointer position, not the gesture's first position.
+    // The old calculation repeatedly applied the entire gesture distance and made
+    // mobile 360-degree looking jump, reverse or seem locked in one direction.
+    const dx = event.clientX - this.lastX
+    const dy = event.clientY - this.lastY
     this.lastX = event.clientX
     this.lastY = event.clientY
+    if (!this.handlers.canInteract()) return
+    this.handlers.look(dx * (this.activePointerType === 'touch' ? touchLookMultiplier(this.canvas.clientWidth) : 1), dy)
   }
 
   private readonly wheel = (event: WheelEvent) => this.handlers.zoom(event.deltaY)
@@ -70,4 +84,9 @@ export class InputController {
     if (event.key === 'ArrowRight') this.handlers.seekBy(0.01)
     if (event.key === 'ArrowLeft') this.handlers.seekBy(-0.01)
   }
+}
+
+/** Two generous mobile swipes should traverse a full 360 degrees without a tiny sensitivity. */
+export function touchLookMultiplier(viewportWidth: number): number {
+  return Math.max(1.1, Math.min(3.75, 900 / Math.max(240, viewportWidth)))
 }
