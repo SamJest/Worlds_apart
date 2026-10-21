@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { GameConfig } from '../config/gameConfig.ts'
+import { wrapYaw } from './viewAngles.ts'
 import { EARTH_RADIUS, MOON_RADIUS } from '../simulation/astronomy.ts'
 
 export type CameraMode = 'first-person' | 'external'
@@ -9,9 +10,11 @@ export class CameraController {
   private yaw = 0
   private pitch = 0
   private orbitDistance: number
+  private snapNextCamera = false
   private readonly desired = new THREE.Vector3()
   private readonly direction = new THREE.Vector3()
   private readonly side = new THREE.Vector3()
+  private readonly viewUp = new THREE.Vector3()
   private readonly target = new THREE.Vector3()
   private readonly radial = new THREE.Vector3()
   private readonly origin = new THREE.Vector3()
@@ -27,37 +30,50 @@ export class CameraController {
     this.modeValue = this.modeValue === 'first-person' ? 'external' : 'first-person'
     this.yaw = 0
     this.pitch = 0
+    this.snapNextCamera = true
   }
 
   look(deltaX: number, deltaY: number) {
-    this.yaw = THREE.MathUtils.clamp(this.yaw - deltaX * this.config.pointerSensitivity, -this.config.maximumYawRadians, this.config.maximumYawRadians)
+    this.yaw = wrapYaw(this.yaw - deltaX * this.config.pointerSensitivity)
     this.pitch = THREE.MathUtils.clamp(this.pitch + deltaY * this.config.pitchSensitivity, -this.config.maximumPitchRadians, this.config.maximumPitchRadians)
   }
+
+  turnAround() { this.yaw = wrapYaw(this.yaw + Math.PI); this.snapNextCamera = true }
 
   zoom(direction: number) {
     this.orbitDistance = THREE.MathUtils.clamp(this.orbitDistance * (1 + Math.sign(direction) * this.config.zoomStep), this.config.minimumExternalDistanceWorldUnits, this.config.maximumExternalDistanceWorldUnits)
   }
 
   apply(point: THREE.Vector3, tangent: THREE.Vector3, moonPosition: THREE.Vector3, elapsedSeconds = 1 / 60, reducedMotion = false) {
+    this.viewUp.copy(this.up).addScaledVector(tangent, -this.up.dot(tangent))
+    if (this.viewUp.lengthSq() < 0.0001) this.viewUp.set(0, 0, 1).addScaledVector(tangent, -tangent.z)
+    this.viewUp.normalize()
+    this.side.crossVectors(this.viewUp, tangent).normalize()
+    this.camera.up.copy(this.viewUp)
     if (this.modeValue === 'external') {
-      this.desired.copy(point)
-        .addScaledVector(tangent, -this.orbitDistance * Math.cos(this.yaw))
-        .add(this.direction.set(Math.sin(this.yaw) * this.orbitDistance, 0.055 + this.orbitDistance * 0.37 + this.pitch * this.orbitDistance, Math.cos(this.yaw) * this.orbitDistance * 0.2))
+      const elevation = THREE.MathUtils.clamp(0.28 + this.pitch, -1.3, 1.3)
+      const horizontal = this.orbitDistance * Math.cos(elevation)
+      this.desired.copy(point).addScaledVector(tangent, -horizontal * Math.cos(this.yaw))
+        .addScaledVector(this.side, -horizontal * Math.sin(this.yaw))
+        .addScaledVector(this.viewUp, this.orbitDistance * Math.sin(elevation))
       this.keepOutside(this.desired, this.origin, EARTH_RADIUS)
       this.keepOutside(this.desired, moonPosition, MOON_RADIUS)
-      // Frame-rate-independent easing, with immediate repositioning after a seek.
-      const alpha = reducedMotion || this.camera.position.distanceToSquared(this.desired) > 4
+      const alpha = this.snapNextCamera || reducedMotion || this.camera.position.distanceToSquared(this.desired) > 4
         ? 1 : 1 - Math.exp(-Math.max(0, elapsedSeconds) * 10)
       this.camera.position.lerp(this.desired, alpha)
+      this.snapNextCamera = false
       this.keepOutside(this.camera.position, this.origin, EARTH_RADIUS)
       this.keepOutside(this.camera.position, moonPosition, MOON_RADIUS)
       this.camera.lookAt(this.target.copy(point).addScaledVector(tangent, 0.09))
       return
     }
-    this.desired.copy(point).addScaledVector(tangent, this.config.firstPersonForwardWorldUnits).addScaledVector(this.up, this.config.firstPersonHeightWorldUnits)
+    this.desired.copy(point).addScaledVector(tangent, this.config.firstPersonForwardWorldUnits)
+      .addScaledVector(this.viewUp, this.config.firstPersonHeightWorldUnits)
     this.camera.position.copy(this.desired)
-    this.side.crossVectors(this.up, tangent).normalize()
-    this.direction.copy(tangent).applyAxisAngle(this.up, this.yaw).applyAxisAngle(this.side, this.pitch)
+    this.direction.copy(tangent).multiplyScalar(Math.cos(this.yaw))
+      .addScaledVector(this.side, Math.sin(this.yaw))
+      .multiplyScalar(Math.cos(this.pitch))
+      .addScaledVector(this.viewUp, Math.sin(this.pitch)).normalize()
     this.camera.lookAt(this.target.copy(this.desired).add(this.direction))
   }
 
