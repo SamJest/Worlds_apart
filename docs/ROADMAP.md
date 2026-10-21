@@ -1,4 +1,22 @@
-# Worlds Apart — roadmap after Round 4 preparation
+# Worlds Apart — creative coaster roadmap
+
+### Current playable baseline
+
+- Free Earth-to-Moon creative building with seven distinct templates, optional anchor editing, saved blueprints and immediate repeat rides.
+- First-person 360°/Look Back and external cameras, telemetry, speed/seek/pause, audio, desktop and mobile layouts.
+- Astronomical scale and apparent body sizes remain grounded while the coaster technology and accelerated journey are explicit fiction.
+- The earlier freight economy and local railway network are dormant, not deleted; they are no longer part of normal gameplay.
+
+### Next
+
+- Richer creative track pieces, scenery, tunnels and stronger visual banking cues.
+- Blueprint sharing and a quicker browse/build/ride loop.
+- Arrival polish and new destinations only after Earth-to-Moon ride quality and measured mobile performance are solid.
+- Do not reactivate transport-economy progression without an explicit product decision.
+
+---
+
+## Historical roadmap before the creative pivot
 
 ### Included in the exported clean baseline (`83f6f4b`)
 

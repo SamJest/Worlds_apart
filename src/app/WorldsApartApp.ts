@@ -1,7 +1,7 @@
 import { AudioEngine } from '../audio/audioEngine.ts'
 import { addLink, addStation, advanceNetworkProduction, beginNetworkShipment, completeNetworkShipment, linkCost, removeLink, removeStation, selectDestination, shortestRailPath, stationById, STATION_PRICE, type LocalRailNetwork } from '../simulation/localRailNetwork.ts'
 import { FreightOperationsUi } from '../ui/freightOperationsUi.ts'
-import { advanceFreight, buildRoute, dispatchFreight, FREIGHT_TIERS, MATERIAL_LIMIT, quoteRoute, routeOwnershipId, upgradeFreightYard, type FreightState } from '../simulation/freightEconomy.ts'
+import { advanceFreight, dispatchFreight, FREIGHT_TIERS, MATERIAL_LIMIT, quoteRoute, routeOwnershipId, upgradeFreightYard, type FreightState } from '../simulation/freightEconomy.ts'
 import { advanceExtraTrains, dispatchExtraTrain, manufactureComponents, unlockNextTrain, type ExtraTrainId, type CargoKind, type FleetState, type OperationsState } from '../simulation/fleetOperations.ts'
 import { readOperationsState, saveOperationsState } from '../simulation/operationsSave.ts'
 import { RoutePlannerUi } from '../ui/routePlannerUi.ts'
@@ -30,6 +30,7 @@ export class WorldsApartApp {
   private freightRenderElapsed = 0
   private freightSaveElapsed = 0
   private networkSaveElapsed = 0
+  private readonly freightEnabled = false
   private readonly audio = new AudioEngine()
   private readonly hud: Hud
   private readonly world: WorldScene
@@ -125,15 +126,12 @@ export class WorldsApartApp {
   private beginPlanned(days: number, design: GuidewayDesign): boolean {
     const constructed = evaluateGuideway(days, this.config.journey.arrivalAltitudeKm, design)
     if (!constructed.valid) return false
-    const id = routeOwnershipId(days, design)
-    const quote = quoteRoute(this.freightState, id, constructed.materialUnits)
-    if (quote.shortfall > 0) return false
-    this.changeFreight(buildRoute(this.freightState, id, constructed.materialUnits))
+    // Unlimited creative mode: all track designs are free, including repeat rides.
     this.route = constructed.route
     this.world.setRoute(this.route)
     this.state = createInitialJourneyState(this.config.journey)
     this.hud.setJourneyDays(days)
-    this.hud.setBuildDetails(constructed.route.lengthKm, constructed.nodes.length, constructed.materialUnits)
+    this.hud.setBuildDetails(constructed.route.lengthKm)
     this.audio.reset()
     this.audio.start(this.preferences)
     this.audio.cue('launch', this.preferences.soundEnabled ? this.preferences.soundVolume : 0)
@@ -273,7 +271,7 @@ export class WorldsApartApp {
     const elapsed = Math.min(rawElapsed, this.config.journey.maximumFrameStepSeconds)
     this.previousTimestamp = timestamp
     this.dispatch({ type: 'advance', elapsedSeconds: elapsed })
-    if (!document.hidden) {
+    if (this.freightEnabled && !document.hidden) {
       const freightElapsed = Math.min(rawElapsed, 1)
       const produced = advanceNetworkProduction(this.localNetwork, freightElapsed)
       let freight = advanceFreight(this.freightState, freightElapsed)
@@ -298,12 +296,12 @@ export class WorldsApartApp {
       }
     }
     this.freightRenderElapsed += elapsed
-    if (this.freightRenderElapsed >= 0.2) {
+    if (this.freightEnabled && this.freightRenderElapsed >= 0.2) {
       this.freightRenderElapsed = 0
       this.freight.render(this.freightState, this.localNetwork, this.fleetState)
       if (this.freightState.shipment) this.hud.setFreightStats(this.freightState.materials, this.freightState.shipment.secondsRemaining)
     }
-    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion, this.freightState, this.localNetwork, this.fleetState)
+    const telemetry = this.world.update(this.state.progress, this.camera, elapsed, this.preferences.reducedMotion)
     this.hud.render(this.state, telemetry)
     this.audio.update(this.preferences, this.state.playing, this.state.progress, missionPhaseAt(this.state.progress).name)
     this.world.render()

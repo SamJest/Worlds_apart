@@ -1,6 +1,6 @@
 import { createEarthMoonRoute, MOON_DISTANCE } from '../simulation/astronomy.ts'
 import { defaultRoutePlan, evaluateIntercept, type RouteDurationDays, type RoutePlan, ROUTE_DURATION_OPTIONS } from '../simulation/routePlanner.ts'
-import { addGuidewayNode, applyGuidewayPreset, MAX_GUIDEWAY_NODES, readGuidewayDesign, removeGuidewayNode, saveGuidewayDesign, updateGuidewayNode, type GuidewayDesign } from '../simulation/constructionPlan.ts'
+import { addGuidewayNode, applyGuidewayPreset, MAX_GUIDEWAY_NODES, readGuidewayDesign, removeGuidewayNode, saveGuidewayDesign, updateGuidewayNode, type GuidewayDesign, type RidePreset } from '../simulation/constructionPlan.ts'
 import { evaluateGuideway, guidewayAnchor } from '../simulation/constructionRoute.ts'
 import { ConstructionPreview } from '../scene/constructionPreview.ts'
 import type { RouteCost } from '../simulation/freightEconomy.ts'
@@ -31,6 +31,8 @@ export class RoutePlannerUi {
   private dragging = false
   private draggingNodeId: number | null = null
   private design: GuidewayDesign = readGuidewayDesign()
+  private activePreset: RidePreset | null = this.design.profile && this.design.profile !== 'classic'
+    ? this.design.profile : (this.design.nodes.length === 0 ? 'direct' : null)
   private selectedNodeId: number | null = this.design.nodes[0]?.id ?? null
   private preview: ConstructionPreview | undefined
   private readonly priorInert = new Map<HTMLElement, boolean>()
@@ -44,7 +46,7 @@ export class RoutePlannerUi {
     panel.setAttribute('role', 'dialog')
     panel.setAttribute('aria-modal', 'true')
     panel.innerHTML = `<div class="route-planner-inner">
-      <div class="planner-heading"><div><span class="eyebrow">FLIGHT OPERATIONS / PRE-LAUNCH</span><h1 id="route-planner-heading">Build your lunar railway</h1><p>Place up to three guideway anchors in 3D, then align your final lunar intercept. The Moon moves while you travel. Align the adaptive railway with its <strong>future</strong> position, not where it is now.</p></div><button type="button" id="planner-back" aria-label="Back to introduction">← BACK</button></div>
+      <div class="planner-heading"><div><span class="eyebrow">CREATIVE RIDE BUILDER · EVERYTHING UNLOCKED</span><h1 id="route-planner-heading">Build an impossible space coaster</h1><p>Pick a crazy track and ride it. Drag the 3D preview to explore your design. Tweak the track only if you want to.</p></div><button type="button" id="planner-back" aria-label="Back to introduction">← BACK</button></div>
       <div class="planner-layout"><div class="orbit-panel"><div class="orbit-caption"><span>ORBITAL MAP · TOP DOWN</span><span class="orbit-caption-secondary">SCHEMATIC · MARKERS ENLARGED</span></div>
       <svg id="planner-visual" viewBox="-215 -195 460 410" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Earth at centre, lunar orbit, current Moon, calculated intercept, proposed track and adjustable aim marker">
         <defs><filter id="target-glow"><feGaussianBlur stdDeviation="3.5" /></filter></defs>
@@ -58,18 +60,18 @@ export class RoutePlannerUi {
         <text id="planner-target-label" class="orbit-label orbit-label-active">PREDICTED ARRIVAL</text>
       </svg><div class="construction-preview-caption">LIVE 3D BLUEPRINT · DRAG TO ROTATE · SCROLL TO ZOOM · PLANETS ENLARGED</div><div id="construction-viewport" class="construction-viewport" aria-label="Rotatable three-dimensional guideway blueprint"></div><div class="orbit-legend"><span><i class="key-track"></i> Proposed track</span><span><i class="key-intercept"></i> Moon at arrival</span><span><i class="key-aim"></i> Your target</span></div></div>
       <div class="planner-controls"><div class="planner-control-group"><h2>01 / Travel duration</h2><p>Choose how far the Moon moves before you arrive.</p><div class="duration-choices" role="group" aria-label="Simulated travel days">${ROUTE_DURATION_OPTIONS.map(days => `<button type="button" data-plan-days="${days}" aria-pressed="${days === 4}">${days} DAYS</button>`).join('')}</div></div>
-        <div class="planner-control-group"><h2>02 / Align the target</h2><p>Drag the orange orbit marker or fine-tune the slider.</p><label class="planner-range-label" for="planner-offset">TARGET OFFSET <strong id="planner-angle">0.0°</strong></label><input id="planner-offset" type="range" min="-12" max="12" value="0" step="0.1" aria-label="Target offset in degrees"/><button id="planner-snap" type="button">✦ SNAP TO RENDEZVOUS</button></div>
-        <div class="planner-control-group construction-controls"><h2>03 / Construct the guideway</h2><p>Choose a template or add an anchor. Select a numbered marker on the orbital map and edit its lateral position and height. The actual train will follow your designed railway.</p>
-          <div class="construction-presets" role="group" aria-label="Guideway templates"><button type="button" data-construction-preset="direct">DIRECT</button><button type="button" data-construction-preset="arc">WIDE ARC</button><button type="button" data-construction-preset="high">HIGH SCENIC</button></div>
-          <div class="construction-node-actions"><strong>CONSTRUCTION ANCHORS</strong><button id="construction-add" type="button">+ ADD ANCHOR</button></div>
+        <div class="planner-control-group optional-intercept"><h2>OPTIONAL ORBITAL AIMING</h2><p>Drag the orange orbit marker or fine-tune the slider.</p><label class="planner-range-label" for="planner-offset">TARGET OFFSET <strong id="planner-angle">0.0°</strong></label><input id="planner-offset" type="range" min="-12" max="12" value="0" step="0.1" aria-label="Target offset in degrees"/><button id="planner-snap" type="button">✦ SNAP TO RENDEZVOUS</button></div>
+        <div class="planner-control-group construction-controls"><h2>CHOOSE YOUR TRACK</h2><p>Every style changes the 3D railway the carriage rides.</p>
+          <div class="construction-presets" role="group" aria-label="Guideway templates"><button type="button" data-construction-preset="direct">DIRECT</button><button type="button" data-construction-preset="arc">WIDE ARC</button><button type="button" data-construction-preset="high">HIGH SCENIC</button><button type="button" data-construction-preset="corkscrew">CORKSCREW</button><button type="button" data-construction-preset="wave">ZERO-G WAVES</button><button type="button" data-construction-preset="slalom">COSMIC SLALOM</button><button type="button" data-construction-preset="dive">DEEP-SPACE DIVE</button></div>
+          <details class="builder-advanced"><summary>FINE-TUNE THE TRACK</summary><div class="construction-node-actions"><strong>CONSTRUCTION ANCHORS</strong><button id="construction-add" type="button">+ ADD ANCHOR</button></div>
           <div id="construction-node-list" class="construction-node-list" role="group" aria-label="Select or remove a guideway anchor"></div>
           <label class="planner-range-label" for="construction-lateral">LATERAL OFFSET <strong id="construction-lateral-value">0 KM</strong></label><input id="construction-lateral" type="range" min="-85000" max="85000" step="1000" value="0"/>
-          <label class="planner-range-label" for="construction-vertical">VERTICAL OFFSET <strong id="construction-vertical-value">0 KM</strong></label><input id="construction-vertical" type="range" min="-60000" max="60000" step="1000" value="0"/>
-          <div class="construction-economy"><span>RAIL LENGTH ALLOWANCE</span><strong id="construction-material">—</strong></div><div id="planner-wallet" class="planner-wallet" role="status" aria-live="polite">500 alloy available</div><button id="planner-freight" type="button" class="planner-freight">OPEN FREIGHT YARD · EARN ALLOY ↗</button><p id="construction-status" class="construction-status" role="status" aria-live="polite">Guideway ready</p><p id="construction-saved" class="construction-saved">Edits save locally on departure.</p>
+          <label class="planner-range-label" for="construction-vertical">VERTICAL OFFSET <strong id="construction-vertical-value">0 KM</strong></label><input id="construction-vertical" type="range" min="-60000" max="60000" step="1000" value="0"/></details>
+          <div class="construction-economy"><span>COASTER LENGTH</span><strong id="construction-material">—</strong></div><div id="planner-wallet" class="planner-wallet" role="status" aria-live="polite">500 alloy available</div><button id="planner-freight" type="button" class="planner-freight">OPEN FREIGHT YARD · EARN ALLOY ↗</button><p id="construction-status" class="construction-status" role="status" aria-live="polite">Guideway ready</p><p id="construction-saved" class="construction-saved">Edits save locally on departure.</p>
         </div>
         <div class="intercept-status" role="status" aria-live="polite"><strong id="planner-status">INTERCEPT LOCKED</strong><span id="planner-miss">Calculated miss: 0 km</span></div>
         <div class="planner-stat"><span>SIMULATED TRAVEL</span><strong id="planner-duration">4 DAYS</strong></div><div class="planner-stat"><span>APPROXIMATE RAIL LENGTH</span><strong id="planner-distance">—</strong></div>
-        <button class="planner-launch" type="button" id="planner-launch">CONFIRM ROUTE & DEPART ↗</button><small class="planner-science">Orbital positions use mean circular motion. Rail propulsion and duration are science fiction, not a real transfer trajectory.</small>
+        <button class="planner-launch" type="button" id="planner-launch">RIDE THIS COASTER</button><small class="planner-science">Orbital positions use mean circular motion. Rail propulsion and duration are science fiction, not a real transfer trajectory.</small>
       </div></div></div>`
     root.append(panel)
     this.panel = panel
@@ -100,11 +102,13 @@ export class RoutePlannerUi {
     this.freightAction.addEventListener('click', () => { this.close(false); this.economy.openFreight() })
     required<HTMLButtonElement>('#construction-add').addEventListener('click', () => {
       this.design = addGuidewayNode(this.design)
+      this.activePreset = null
       this.selectedNodeId = this.design.nodes[this.design.nodes.length - 1]?.id ?? null
       this.render()
     })
     panel.querySelectorAll<HTMLButtonElement>('[data-construction-preset]').forEach(button => button.addEventListener('click', () => {
-      this.design = applyGuidewayPreset(button.dataset.constructionPreset as 'direct' | 'arc' | 'high')
+      this.activePreset = button.dataset.constructionPreset as RidePreset
+      this.design = applyGuidewayPreset(this.activePreset)
       this.selectedNodeId = this.design.nodes[0]?.id ?? null
       this.render()
     }))
@@ -114,6 +118,7 @@ export class RoutePlannerUi {
       if (target.dataset.removeNode) {
         const id = Number(target.dataset.removeNode)
         this.design = removeGuidewayNode(this.design, id)
+        this.activePreset = null
         this.selectedNodeId = this.design.nodes[0]?.id ?? null
       } else if (target.dataset.selectNode) this.selectedNodeId = Number(target.dataset.selectNode)
       this.render()
@@ -123,6 +128,7 @@ export class RoutePlannerUi {
       this.design = updateGuidewayNode(this.design, this.selectedNodeId, {
         lateralKm: Number(this.constructionLateral.value), verticalKm: Number(this.constructionVertical.value),
       })
+      this.activePreset = null
       this.render()
     }
     this.constructionLateral.addEventListener('input', updateSelected)
@@ -137,11 +143,10 @@ export class RoutePlannerUi {
     })
     this.snap.addEventListener('click', () => { this.plan = { ...this.plan, offsetDegrees: 0 }; this.render(); this.confirm.focus() })
     this.confirm.addEventListener('click', () => {
-      if (!evaluateIntercept(this.plan).canLaunch) return
+      this.plan = { ...this.plan, offsetDegrees: 0 } // Destination is automatically targeted.
       const result = evaluateGuideway(this.plan.days, this.arrivalAltitudeKm, this.design)
       if (!result.valid) { this.render(); return }
-      const quote = this.economy.quote(this.plan.days, this.design, result.materialUnits)
-      if (quote.shortfall || !this.onConfirm(this.plan.days, this.design)) { this.render(); return }
+      if (!this.onConfirm(this.plan.days, this.design)) { this.render(); return }
       this.constructionSave.textContent = saveGuidewayDesign(this.design) ? 'Blueprint saved to this browser.' : 'Local saving is disabled in this browser.'
       this.close(false)
     })
@@ -211,6 +216,7 @@ export class RoutePlannerUi {
     const sideX = lateral.x * 158 / MOON_DISTANCE, sideY = -lateral.z * 158 / MOON_DISTANCE
     const offset = (dx * sideX + dy * sideY) / Math.max(1e-6, sideX * sideX + sideY * sideY) * 1000
     this.design = updateGuidewayNode(this.design, node.id, { lateralKm: Math.round(offset / 1000) * 1000 })
+    this.activePreset = null
     this.render()
   }
 
@@ -293,12 +299,9 @@ export class RoutePlannerUi {
     this.panel.querySelector('#construction-lateral-value')!.textContent = `${Math.round((selected?.lateralKm ?? 0) / 1000)}K KM`
     this.panel.querySelector('#construction-vertical-value')!.textContent = `${Math.round((selected?.verticalKm ?? 0) / 1000)}K KM`
     this.panel.querySelector<HTMLButtonElement>('#construction-add')!.disabled = this.design.nodes.length >= MAX_GUIDEWAY_NODES
-    this.constructionMaterial.textContent = `${construction.materialUnits.toLocaleString('en-GB')} / ${Math.ceil(construction.baselineMaterialUnits * 1.20).toLocaleString('en-GB')} ALLOWED`
-    const quote = this.economy.quote(this.plan.days, this.design, construction.materialUnits)
-    this.balance.dataset.affordable = String(quote.shortfall === 0)
-    this.balance.textContent = quote.alreadyBuilt ? `ALREADY BUILT · FREE TO RIDE AGAIN · ${quote.available.toLocaleString('en-GB')} ALLOY IN STOCK`
-      : quote.shortfall > 0 ? `NEED ${quote.shortfall.toLocaleString('en-GB')} MORE ALLOY · ${quote.available.toLocaleString('en-GB')} IN STOCK`
-      : `CONSTRUCTION COST: ${quote.price.toLocaleString('en-GB')} ALLOY · ${quote.available.toLocaleString('en-GB')} IN STOCK · READY TO BUILD`
+    this.constructionMaterial.textContent = `${Math.round(construction.route.lengthKm).toLocaleString('en-GB')} KM`
+    this.balance.dataset.affordable = 'true'
+    this.balance.textContent = 'FREE TO BUILD · NO MATERIALS REQUIRED'
     this.constructionMessage.textContent = construction.valid
       ? `GUIDEWAY VALID · ${construction.extraLengthKm >= 0 ? '+' : ''}${construction.extraLengthKm.toLocaleString('en-GB')} km vs direct · ${this.design.nodes.length} anchors`
       : `CANNOT CONSTRUCT · ${construction.warnings.join(' ')}`
@@ -314,12 +317,13 @@ export class RoutePlannerUi {
     const status = result.assessment === 'locked' ? 'INTERCEPT LOCKED' : result.assessment === 'correction' ? 'CORRECTION NEEDED' : 'TARGET WILL MISS THE MOON'
     this.assessment.textContent = status
     this.panel.dataset.intercept = result.assessment
-    this.confirm.disabled = !result.canLaunch || !construction.valid || quote.shortfall > 0
+    this.confirm.disabled = !construction.valid
     this.miss.textContent = result.canLaunch ? 'Automatic fine correction available · ready for departure' : `Projected centreline miss: ${Math.round(result.missDistanceKm).toLocaleString('en-GB')} km · ${result.differenceDegrees.toFixed(1)}° off target`
     this.duration.textContent = `${this.plan.days} DAYS · ${result.predictedDegrees.toFixed(1)}° LUNAR SWEEP`
     this.distance.textContent = `${Math.round(route.lengthKm).toLocaleString('en-GB')} KM · PLAYER BUILT`
     this.selectedAngle.textContent = `${this.plan.offsetDegrees > 0 ? '+' : ''}${this.plan.offsetDegrees.toFixed(1)}°`
     this.target.value = String(this.plan.offsetDegrees)
     this.durationButtons.forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.planDays) === this.plan.days)))
+    this.panel.querySelectorAll<HTMLButtonElement>('[data-construction-preset]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.constructionPreset === this.activePreset)))
   }
 }

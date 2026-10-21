@@ -48,6 +48,7 @@ export class WorldScene {
     this.railway = createRailway(route, config)
     this.carriage = createCarriage()
     this.freightInfrastructure = createFreightInfrastructure()
+    this.freightInfrastructure.group.visible = false
     this.scene.add(this.environment.group, this.bodies.group, this.railway.group, this.carriage.group, this.freightInfrastructure.group)
     viewport.append(this.renderer.domElement)
     this.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio)

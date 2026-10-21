@@ -1,6 +1,7 @@
+import { scenicOffsetAt } from './scenicProfile.ts'
 import * as THREE from 'three'
 import { createEarthMoonRoute, EARTH_RADIUS, KILOMETRES_PER_WORLD_UNIT, MOON_RADIUS, type EarthMoonRoute } from './astronomy.ts'
-import { validateGuidewayDesign, type GuidewayDesign } from './constructionPlan.ts'
+import { validateGuidewayDesign, type GuidewayDesign, type RideProfile } from './constructionPlan.ts'
 
 export interface GuidewayAssessment {
   readonly route: EarthMoonRoute
@@ -34,7 +35,7 @@ export function evaluateGuideway(simulatedDays: number, arrivalAltitudeKm: numbe
     extraLengthKm: 0, materialUnits: Math.ceil(baseline.lengthKm / 1000), baselineMaterialUnits: Math.ceil(baseline.lengthKm / 1000),
   }
   const nodes = validated.nodes.map(node => guidewayAnchor(baseline, node.fraction, node.lateralKm, node.verticalKm))
-  if (!nodes.length || nodes.every((point, i) => point.distanceTo(baseline.curve.getPoint(validated.nodes[i].fraction)) < 0.00001)) return {
+  if ((validated.profile ?? 'classic') === 'classic' && (!nodes.length || nodes.every((point, i) => point.distanceTo(baseline.curve.getPoint(validated.nodes[i].fraction)) < 0.00001))) return {
     route: { ...baseline, constructionAnchors: nodes }, nodes, valid: true, warnings: [], extraLengthKm: 0,
     materialUnits: Math.ceil(baseline.lengthKm / 1000), baselineMaterialUnits: Math.ceil(baseline.lengthKm / 1000),
   }
@@ -43,13 +44,15 @@ export function evaluateGuideway(simulatedDays: number, arrivalAltitudeKm: numbe
   const firstControl = baseline.start.clone().addScaledVector(baseline.curve.getTangent(0).normalize(), 55)
   const lastControl = baseline.end.clone().addScaledVector(baseline.curve.getTangent(1).normalize(), -55)
   const points = [baseline.start.clone(), firstControl, ...nodes, lastControl, baseline.end.clone()]
-  const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5)
+  const anchorCurve = nodes.length ? new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5) : baseline.curve
+  const profile = validated.profile ?? 'classic'
+  const curve: THREE.Curve<THREE.Vector3> = profile === 'classic' ? anchorCurve : new ScenicRouteCurve(anchorCurve, profile)
   curve.arcLengthDivisions = 512
   const lengthKm = curve.getLength() * KILOMETRES_PER_WORLD_UNIT
   const route: EarthMoonRoute = { ...baseline, curve, lengthKm, constructionAnchors: nodes }
   const warnings: string[] = []
   // Constraint is a game-design construction allowance, not a monetary/material economy.
-  if (lengthKm > baseline.lengthKm * 1.20) warnings.push('Material allowance exceeded: shorten the planned detour.')
+  // Creative mode has no spending or length allowance.
   // Protect the Earth and the future arrival Moon, not merely their current markers.
   for (let i = 1; i < 250; i++) {
     const fraction = i / 250
@@ -70,10 +73,31 @@ export function evaluateGuideway(simulatedDays: number, arrivalAltitudeKm: numbe
     const after = curve.getTangent(i / 120).normalize()
     maximumStepAngle = Math.max(maximumStepAngle, before.angleTo(after))
   }
-  if (maximumStepAngle > THREE.MathUtils.degToRad(20)) warnings.push('Guideway bend is too sharp. Soften the anchor offsets.')
+  if (maximumStepAngle > THREE.MathUtils.degToRad(65)) warnings.push('Guideway bend is too sharp. Soften the anchor offsets.')
   return {
     route, nodes, valid: warnings.length === 0, warnings,
     extraLengthKm: Math.round(lengthKm - baseline.lengthKm),
     materialUnits: Math.ceil(lengthKm / 1000), baselineMaterialUnits: Math.ceil(baseline.lengthKm / 1000),
+  }
+}
+
+/** Procedural twists in a local path frame, smoothly entering/leaving the planets. */
+class ScenicRouteCurve extends THREE.Curve<THREE.Vector3> {
+  private readonly reference: THREE.Curve<THREE.Vector3>
+  private readonly profile: Exclude<RideProfile, 'classic'>
+
+  constructor(reference: THREE.Curve<THREE.Vector3>, profile: Exclude<RideProfile, 'classic'>) {
+    super()
+    this.reference = reference
+    this.profile = profile
+  }
+  getPoint(t: number, target = new THREE.Vector3()): THREE.Vector3 {
+    this.reference.getPoint(t, target)
+    const tangent = this.reference.getTangent(t).normalize()
+    const vertical = new THREE.Vector3(0, 1, 0).addScaledVector(tangent, -tangent.y).normalize()
+    const sideways = new THREE.Vector3().crossVectors(tangent, vertical).normalize()
+    const offsets = scenicOffsetAt(t, this.profile)
+    return target.addScaledVector(sideways, offsets.lateralKm / KILOMETRES_PER_WORLD_UNIT)
+      .addScaledVector(vertical, offsets.verticalKm / KILOMETRES_PER_WORLD_UNIT)
   }
 }

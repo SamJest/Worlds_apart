@@ -32,6 +32,10 @@ Pure tests cover astronomy, configuration and journey transitions. Tool tests co
 
 Normal ChatGPT receives an explicit text snapshot and can return bounded complete-file replacements. The local tool verifies commit and file hashes, paths and symlinks before writing, creates backups, and never executes supplied commands. Codex/humans remain responsible for review, browser integration, tests, commits and pushes.
 
+## 2026-10-21 — creative space-coaster pivot
+
+The ride and free-form spectacle are now the primary loop. Seven free templates launch without materials or alignment work; four use tapered procedural offsets in the local route frame. The freight economy, local network and saves remain implemented but dormant so the pivot is reversible without destroying player data. Mobile 360° look, Look Back and movable telemetry are protected behavior.
+
 
 ## 2026-10-20 — proposed ChatGPT refinement (integration pending)
 

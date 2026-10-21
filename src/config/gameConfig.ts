@@ -97,7 +97,7 @@ export const defaultGameConfig: GameConfig = {
     destination: 'THE MOON',
     introEyebrow: 'WORLDS APART &nbsp; / &nbsp; PROTOTYPE 01',
     introTitleHtml: 'The distance<br/>between worlds.',
-    introBody: 'Ride a fictional adaptive railway from Earth to a moving Moon. The sizes and orbital distance are grounded in astronomy; the rail and accelerated journey are fiction.',
+    introBody: 'Design spectacular rollercoaster tracks through space, then ride them from Earth to the Moon. Loops, swoops and planet views. No money, grinding or waiting.',
     begin: 'BEGIN JOURNEY',
     arrivalTitle: 'Welcome to the Moon.',
     arrivalBody: 'One small journey. A whole new world.',

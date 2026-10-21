@@ -174,6 +174,20 @@ button:focus-visible,input:focus-visible{outline:3px solid #b5f4ff;outline-offse
 .demolition-row span { font-size: .8rem; }
 .demolition-row button { min-height: 42px; }
 
+/* Creative mode keeps the freight/economy subsystem dormant and puts ride design first. */
+#freight-open,#intro-freight,#arrival-freight,#planner-freight,#planner-wallet,.optional-intercept {display:none!important}
+.left-panel .reading[hidden] {display:none!important}
+.route-planner .construction-controls {order:-6;border-color:#5ac9f0;background:#102d46}
+.route-planner .planner-launch {order:-5;min-height:58px;font-size:17px;font-weight:900}
+.route-planner .construction-presets {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:13px 0}
+.route-planner .construction-presets button {min-height:46px;font-size:12px;border-radius:9px}
+.route-planner .construction-presets button[aria-pressed=true] {background:#236080;color:#fff;border-color:#d5f9ff}
+.builder-advanced {margin-top:12px;padding:12px;border:1px solid #517c94;border-radius:9px}
+.builder-advanced summary {cursor:pointer;font-size:12px;font-weight:800;color:#bce8fa}
+.route-planner .construction-viewport {height:275px}
+.route-planner .planner-stat,.route-planner .intercept-status,.route-planner .planner-science {display:none}
+@media(max-width:780px){.route-planner .construction-viewport{height:190px}.route-planner .construction-presets button{font-size:11px}}
+
 /* Mobile playtest: compact, draggable telemetry. */
 .left-panel { z-index:4; max-width:calc(100vw - 8px); }
 .telemetry-top { display:flex; align-items:center; justify-content:space-between; gap:5px; border-bottom:1px solid #6b8ca03a; }

@@ -5,7 +5,8 @@ export interface GuidewayNode {
   lateralKm: number // signed displacement in the lunar orbital plane
   verticalKm: number // displacement normal to the lunar orbital plane
 }
-export interface GuidewayDesign { version: 1; nodes: GuidewayNode[] }
+export type RideProfile = 'classic' | 'corkscrew' | 'wave' | 'slalom' | 'dive'
+export interface GuidewayDesign { version: 1; nodes: GuidewayNode[]; profile?: RideProfile }
 
 export const GUIDEWAY_STORAGE_KEY = 'worlds-apart.guideway.v1'
 export const MAX_GUIDEWAY_NODES = 3
@@ -28,22 +29,24 @@ export function addGuidewayNode(design: GuidewayDesign): GuidewayDesign {
     if (gap > largestGap) { largestGap = gap; insertAt = (stops[i] + stops[i - 1]) / 2 }
   }
   const id = Math.max(0, ...sorted.map(node => node.id)) + 1
-  return { version: 1, nodes: [...sorted, { id, fraction: insertAt, lateralKm: 0, verticalKm: 0 }].sort((a, b) => a.fraction - b.fraction) }
+  return { ...design, nodes: [...sorted, { id, fraction: insertAt, lateralKm: 0, verticalKm: 0 }].sort((a, b) => a.fraction - b.fraction) }
 }
 
 export function removeGuidewayNode(design: GuidewayDesign, id: number): GuidewayDesign {
-  return { version: 1, nodes: design.nodes.filter(node => node.id !== id) }
+  return { ...design, nodes: design.nodes.filter(node => node.id !== id) }
 }
 
 export function updateGuidewayNode(design: GuidewayDesign, id: number, changes: Partial<Pick<GuidewayNode, 'lateralKm' | 'verticalKm'>>): GuidewayDesign {
-  return { version: 1, nodes: design.nodes.map(node => node.id !== id ? node : {
+  return { ...design, nodes: design.nodes.map(node => node.id !== id ? node : {
     ...node,
     lateralKm: clamp(changes.lateralKm ?? node.lateralKm, -MAX_LATERAL_KM, MAX_LATERAL_KM),
     verticalKm: clamp(changes.verticalKm ?? node.verticalKm, -MAX_VERTICAL_KM, MAX_VERTICAL_KM),
   }) }
 }
 
-export function applyGuidewayPreset(preset: 'direct' | 'arc' | 'high'): GuidewayDesign {
+export type RidePreset = 'direct' | 'arc' | 'high' | 'corkscrew' | 'wave' | 'slalom' | 'dive'
+export function applyGuidewayPreset(preset: RidePreset): GuidewayDesign {
+  if (preset === 'corkscrew' || preset === 'wave' || preset === 'slalom' || preset === 'dive') return { version: 1, profile: preset, nodes: [] }
   if (preset === 'direct') return { version: 1, nodes: [] }
   if (preset === 'arc') return { version: 1, nodes: [
     { id: 1, fraction: 0.32, lateralKm: 30000, verticalKm: 0 },
@@ -62,6 +65,7 @@ export function validateGuidewayDesign(value: unknown): GuidewayDesign | null {
   if (!value || typeof value !== 'object') return null
   const source = value as Record<string, unknown>
   if (source.version !== 1 || !Array.isArray(source.nodes) || source.nodes.length > MAX_GUIDEWAY_NODES) return null
+  if (source.profile !== undefined && !['classic', 'corkscrew', 'wave', 'slalom', 'dive'].includes(source.profile as string)) return null
   const ids = new Set<number>()
   const nodes: GuidewayNode[] = []
   for (const item of source.nodes) {
@@ -77,7 +81,7 @@ export function validateGuidewayDesign(value: unknown): GuidewayDesign | null {
   }
   nodes.sort((a, b) => a.fraction - b.fraction)
   if (nodes.some((node, i) => i && node.fraction - nodes[i - 1].fraction < MIN_FRACTION_SPACING)) return null
-  return { version: 1, nodes }
+  return { version: 1, nodes, ...(source.profile ? { profile: source.profile as RideProfile } : {}) }
 }
 
 export function readGuidewayDesign(storage?: Pick<Storage, 'getItem'>): GuidewayDesign {
